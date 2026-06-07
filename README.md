@@ -136,31 +136,6 @@ docker-compose -f docker-compose.dev.yml exec backend sh
 docker-compose -f docker-compose.dev.yml exec postgres psql -U creative_user -d creative_bot
 ```
 
-## Database Schema Overview
-
-Key tables:
-- `users` - Team members with roles
-- `creatives` - Creative files with metadata
-- `creative_geos` - GEO targeting (M:N)
-- `creative_angles` - Angles/categories (M:N)
-- `creative_statuses` - Status tracking per buyer/GEO
-- `downloads` - Download audit log
-- `comments` - Comments with threading
-- `bookmarks` - User bookmarks
-- `subscriptions` - GEO + angle subscriptions
-- `notifications` - Notification log
-- `audit_log` - Action audit trail
-
-## Next Steps
-
-1. ✅ Basic infrastructure setup
-2. 🔄 User authentication & authorization
-3. 🔄 Creative upload endpoint
-4. 🔄 Search & filtering logic
-5. 🔄 Telegram bot commands
-6. 🔄 Mini App UI screens
-7. 🔄 Admin dashboard
-
 ## Troubleshooting
 
 ### Port already in use
