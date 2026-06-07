@@ -1,0 +1,20 @@
+{
+    "name": "creative-bot",
+    "version": "0.1.0",
+    "description": "Telegram bot for managing dating vertical creatives",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "docker-compose -f docker-compose.dev.yml up",
+        "dev:down": "docker-compose -f docker-compose.dev.yml down",
+        "dev:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+        "build": "docker-compose -f docker-compose.prod.yml build",
+        "prod": "docker-compose -f docker-compose.prod.yml up -d",
+        "prod:down": "docker-compose -f docker-compose.prod.yml down"
+    },
+    "workspaces": [
+        "backend",
+        "frontend",
+        "shared"
+    ]
+}
