@@ -17,7 +17,6 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile.prod
     healthCheckPath: /health
-    preDeployCommand: npm run db:migrate
     envVars:
       - key: NODE_ENV
         value: production
