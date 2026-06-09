@@ -90,10 +90,6 @@ export const installErrorHandlers = (app: express.Express) => {
   });
 
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (config.sentry.dsn) {
-      Sentry.captureException(err);
-    }
-
     logger.error(err, 'Unhandled error');
     res.status(500).json({
       error: config.env === 'production' ? 'Internal server error' : err.message,
