@@ -216,6 +216,8 @@ export const getCreativeVersionHistory = async (creativeId: string) => {
   return result.rows;
 };
 
+export type CreativeSortMode = 'newest' | 'confirmations' | 'updated';
+
 export const searchCreatives = async (
   geos?: string[],
   angles?: string[],
@@ -223,7 +225,9 @@ export const searchCreatives = async (
   limit: number = 20,
   offset: number = 0,
   authorId?: string,
-  archivedOnly: boolean = false
+  archivedOnly: boolean = false,
+  sort: CreativeSortMode = 'newest',
+  queryText?: string
 ): Promise<{ creatives: Creative[]; total: number }> => {
   try {
     const params: any[] = [];
@@ -273,9 +277,31 @@ export const searchCreatives = async (
       whereConditions.push(`c.author_id = ${addParam(authorId)}`);
     }
 
+    if (queryText?.trim()) {
+      const normalized = queryText.trim();
+      if (/^CR-[A-Z0-9]+$/i.test(normalized)) {
+        whereConditions.push(`c.short_id = ${addParam(normalized.toUpperCase())}`);
+      } else {
+        const like = `%${normalized}%`;
+        whereConditions.push(`(
+          c.short_id ILIKE ${addParam(like)}
+          OR u.username ILIKE ${addParam(like)}
+          OR u.display_name ILIKE ${addParam(like)}
+          OR EXISTS (SELECT 1 FROM creative_angles caq WHERE caq.creative_id = c.id AND caq.angle ILIKE ${addParam(like)})
+          OR EXISTS (SELECT 1 FROM creative_geos cgq WHERE cgq.creative_id = c.id AND cgq.geo_code ILIKE ${addParam(like)})
+        )`);
+      }
+    }
+
+    const orderBy = sort === 'confirmations'
+      ? `(SELECT COUNT(*)::INT FROM creative_statuses cs_sort WHERE cs_sort.creative_id = c.id AND cs_sort.status = 'working') DESC, c.created_at DESC`
+      : sort === 'updated'
+        ? `GREATEST(c.updated_at, COALESCE((SELECT MAX(cs_sort.updated_at) FROM creative_statuses cs_sort WHERE cs_sort.creative_id = c.id), c.updated_at)) DESC`
+        : 'c.created_at DESC';
+
     query_text += ` WHERE ${whereConditions.join(' AND ')}`;
     const countParams = [...params];
-    query_text += ` GROUP BY c.id, u.username, u.display_name, p.short_id ORDER BY c.created_at DESC LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}`;
+    query_text += ` GROUP BY c.id, u.username, u.display_name, p.short_id ORDER BY ${orderBy} LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}`;
 
     const result = await query(query_text, params);
     

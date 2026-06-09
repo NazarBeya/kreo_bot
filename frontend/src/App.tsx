@@ -1,5 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import apiClient from './api';
+import { AdminUsersPanel } from './components/AdminUsersPanel';
+import { CreativeStatusPanel } from './components/CreativeStatusPanel';
+import { getWatermarkedPreviewUrl } from './utils/preview';
 
 type CreativeStatus = 'new' | 'working' | 'fading' | 'dead';
 
@@ -60,6 +63,7 @@ interface CreativeComment {
     id: string;
     text: string;
     created_at: string;
+    parent_id?: string | null;
     username?: string;
     display_name?: string;
 }
@@ -197,10 +201,10 @@ declare global {
 
 const tones = ['ember', 'violet', 'berry', 'ocean'];
 
-const AuthorWatermarks: React.FC<{ author: string; count?: number }> = ({ author, count = 6 }) => (
+const ViewerWatermarks: React.FC<{ viewerLabel: string; count?: number }> = ({ viewerLabel, count = 6 }) => (
     <div className="watermarks" aria-hidden="true">
         {Array.from({ length: count }, (_, index) => (
-            <span key={index}>{author}</span>
+            <span key={index}>{viewerLabel}</span>
         ))}
     </div>
 );
@@ -265,10 +269,10 @@ const navItems = [
     ['◐', 'профіль'],
 ];
 
-const geoFilters = ['DE', 'IL', 'PL', 'GB', 'US', 'FR', 'IT', 'AU'];
-const angleFilters = ['sugar', 'mature', 'casual', 'MILF', 'asian', 'серйозні', 'swinger'];
+const defaultGeos = ['DE', 'IL', 'PL', 'GB', 'US'];
+const defaultAngles = ['sugar', 'mature', 'casual', 'MILF', 'asian', 'серйозні стосунки', 'swinger'];
 const statusFilters: CreativeStatus[] = ['working', 'fading', 'dead', 'new'];
-type SortMode = 'newest' | 'tests';
+type SortMode = 'newest' | 'confirmations' | 'updated';
 type AppScreen = 'catalog' | 'feed' | 'upload' | 'bookmarks' | 'profile';
 
 interface UploadFileCard {
@@ -298,6 +302,7 @@ interface UploadMetadata {
     authorComment: string;
     parentShortId: string;
     versionLabel: string;
+    language?: string;
 }
 
 const notificationOptions = [
@@ -308,6 +313,7 @@ const notificationOptions = [
     { type: 'burnout', label: 'Скачане крео вигоріло' },
     { type: 'comment', label: 'Коментар під моїм крео' },
     { type: 'resurrection', label: 'Крео воскресло з архіву' },
+    { type: 'mention', label: 'Згадка через @' },
 ];
 
 const formatFileSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -329,15 +335,19 @@ const writePreviousUploadMetadata = (metadata: UploadMetadata) => {
     localStorage.setItem(previousUploadStorageKey, JSON.stringify(metadata));
 };
 
-const detectMetadataFromFileName = (fileName: string): Partial<UploadMetadata> => {
+const detectMetadataFromFileName = (
+    fileName: string,
+    geoOptions: string[] = defaultGeos,
+    angleOptions: string[] = defaultAngles,
+): Partial<UploadMetadata> => {
     const nameWithoutExtension = fileName.replace(/\.[^.]+$/, '');
     const tokens = nameWithoutExtension
         .split(/[^a-z0-9а-яіїєґ]+/i)
         .map(cleanFileToken)
         .filter(Boolean);
     const lowerName = cleanFileToken(nameWithoutExtension);
-    const geos = geoFilters.filter((geo) => tokens.includes(geo.toLowerCase()));
-    const angles = angleFilters.filter((angle) => {
+    const geos = geoOptions.filter((geo) => tokens.includes(geo.toLowerCase()));
+    const angles = angleOptions.filter((angle) => {
         const normalized = cleanFileToken(angle);
         return tokens.includes(normalized) || lowerName.includes(normalized);
     });
@@ -440,21 +450,26 @@ const BottomNav: React.FC<{ activeScreen: AppScreen; onNavigate: (screen: AppScr
     </nav>
 );
 
-const CreativePreview: React.FC<{ creative: CreativeCard; onOpen: (creative: CreativeCard) => void }> = ({
+const CreativePreview: React.FC<{
+    creative: CreativeCard;
+    viewerLabel: string;
+    onOpen: (creative: CreativeCard) => void;
+}> = ({
     creative,
+    viewerLabel,
     onOpen,
 }) => (
     <article className="creative-card catalog-card" onClick={() => onOpen(creative)}>
         <div
             className={`creative-preview tone-${creative.tone}`}
-            style={creative.previewUrl ? { backgroundImage: `url(${creative.previewUrl})` } : undefined}
+            style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
         >
             <span className={`status-pill status-${creative.status}`}>
                 <i />
                 {statusLabels[creative.status]}
             </span>
             {creative.isArchived && <span className="archive-badge">архів</span>}
-            {!creative.previewUrl && <AuthorWatermarks author={creative.author} />}
+            <ViewerWatermarks viewerLabel={viewerLabel} />
             {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
             <div className="geo-list">
                 {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
@@ -473,20 +488,25 @@ const CreativePreview: React.FC<{ creative: CreativeCard; onOpen: (creative: Cre
     </article>
 );
 
-const BookmarkPreview: React.FC<{ creative: CreativeCard; onOpen: (creative: CreativeCard) => void }> = ({
+const BookmarkPreview: React.FC<{
+    creative: CreativeCard;
+    viewerLabel: string;
+    onOpen: (creative: CreativeCard) => void;
+}> = ({
     creative,
+    viewerLabel,
     onOpen,
 }) => (
     <article className="creative-card bookmark-card" onClick={() => onOpen(creative)}>
         <div
             className={`creative-preview tone-${creative.tone}`}
-            style={creative.previewUrl ? { backgroundImage: `url(${creative.previewUrl})` } : undefined}
+            style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
         >
             <span className={`status-pill status-${creative.status}`}>
                 <i />
                 {statusLabels[creative.status]}
             </span>
-            {!creative.previewUrl && <AuthorWatermarks author={creative.author} />}
+            <ViewerWatermarks viewerLabel={viewerLabel} />
             {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
             <div className="geo-list">
                 {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
@@ -515,12 +535,17 @@ const CreativeDetailsModal: React.FC<{
     onResurrect: (creative: CreativeCard) => Promise<void>;
     onLifecycleUpdate: (creative: CreativeCard, status: 'actual' | 'fading' | 'not_running') => Promise<void>;
 }> = ({ creative, currentUser, onClose, onBookmarkToggle, onCommentAdded, onResurrect, onLifecycleUpdate }) => {
+    const viewerLabel = currentUser?.username
+        ? `@${currentUser.username}`
+        : currentUser?.displayName || 'невідомо';
     const [activeTab, setActiveTab] = useState<'info' | 'versions' | 'testers' | 'comments'>('info');
     const [testers, setTesters] = useState<TesterStatus[]>([]);
     const [comments, setComments] = useState<CreativeComment[]>([]);
     const [versions, setVersions] = useState<CreativeVersion[]>([]);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [commentText, setCommentText] = useState('');
+    const [replyToId, setReplyToId] = useState<string | null>(null);
+    const [hasDownloaded, setHasDownloaded] = useState(false);
     const testerCount = creative.testerCount;
     const commentCount = creative.commentCount;
     const canManageLifecycle = Boolean(
@@ -533,13 +558,15 @@ const CreativeDetailsModal: React.FC<{
             setDetailsLoading(true);
 
             try {
-                const [statusesResponse, commentsResponse] = await Promise.all([
+                const [statusesResponse, commentsResponse, contextResponse, versionsResponse] = await Promise.all([
                     apiClient.get(`/api/status/${creative.id}`),
                     apiClient.get(`/api/app/creatives/${creative.id}/comments`),
+                    apiClient.get(`/api/creatives/${creative.id}/context`),
+                    apiClient.get(`/api/creatives/${creative.id}/versions`),
                 ]);
                 setTesters(statusesResponse.data.data);
                 setComments(commentsResponse.data.data);
-                const versionsResponse = await apiClient.get(`/api/creatives/${creative.id}/versions`);
+                setHasDownloaded(Boolean(contextResponse.data.data.hasDownloaded));
                 setVersions(versionsResponse.data.data);
             } finally {
                 setDetailsLoading(false);
@@ -556,9 +583,13 @@ const CreativeDetailsModal: React.FC<{
             return;
         }
 
-        const response = await apiClient.post(`/api/app/creatives/${creative.id}/comments`, { text });
+        const response = await apiClient.post(`/api/app/creatives/${creative.id}/comments`, {
+            text,
+            parentId: replyToId,
+        });
         setComments((current) => [response.data.data, ...current]);
         setCommentText('');
+        setReplyToId(null);
         onCommentAdded(creative.id);
     };
 
@@ -568,14 +599,14 @@ const CreativeDetailsModal: React.FC<{
             <div className="details-handle" />
             <div
                 className={`details-preview tone-${creative.tone}`}
-                style={creative.previewUrl ? { backgroundImage: `url(${creative.previewUrl})` } : undefined}
+                style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
             >
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
                 </span>
                 {creative.isArchived && <span className="archive-badge">архів</span>}
-                {!creative.previewUrl && <AuthorWatermarks author={creative.author} />}
+                <ViewerWatermarks viewerLabel={viewerLabel} />
                 <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
                 <div className="geo-list">
                     {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
@@ -620,6 +651,7 @@ const CreativeDetailsModal: React.FC<{
                         onClick={async () => {
                             const response = await apiClient.get(`/api/creatives/${creative.id}/download`);
                             window.open(response.data.url, '_blank');
+                            setHasDownloaded(true);
                         }}
                     >
                         📥 завантажити
@@ -633,6 +665,17 @@ const CreativeDetailsModal: React.FC<{
                         </button>
                     )}
                 </div>
+                {hasDownloaded && currentUser?.role !== 'designer' && (
+                    <CreativeStatusPanel
+                        creativeId={creative.id}
+                        geos={creative.geos}
+                        onUpdated={() => {
+                            void apiClient.get(`/api/status/${creative.id}`).then((response) => {
+                                setTesters(response.data.data);
+                            });
+                        }}
+                    />
+                )}
                 <div className="details-tabs">
                     <button className={activeTab === 'info' ? 'active' : ''} onClick={() => setActiveTab('info')}>інфо</button>
                     <button className={activeTab === 'versions' ? 'active' : ''} onClick={() => setActiveTab('versions')}>
@@ -740,10 +783,11 @@ const CreativeDetailsModal: React.FC<{
                         ) : comments.length ? (
                             <div className="comment-list">
                                 {comments.map((comment) => (
-                                    <article className="comment-card" key={comment.id}>
+                                    <article className={`comment-card ${comment.parent_id ? 'reply' : ''}`} key={comment.id}>
                                         <div>
                                             <strong>{comment.username ? `@${comment.username}` : comment.display_name || 'користувач'}</strong>
                                             <time>{relativeDate(comment.created_at)}</time>
+                                            <button onClick={() => setReplyToId(comment.id)}>відповісти</button>
                                         </div>
                                         <p>{comment.text}</p>
                                     </article>
@@ -781,14 +825,19 @@ const DetailField: React.FC<React.PropsWithChildren<{ label: string }>> = ({ lab
 const UploadScreen: React.FC<{
     presets: UploadPreset[];
     uploaderLabel: string;
+    geoOptions: string[];
+    angleOptions: string[];
+    languageOptions: string[];
     telegramUploadSessionId?: string | null;
     onUploaded: () => Promise<void>;
-}> = ({ presets, uploaderLabel, telegramUploadSessionId, onUploaded }) => {
+}> = ({ presets, uploaderLabel, geoOptions, angleOptions, languageOptions, telegramUploadSessionId, onUploaded }) => {
     const availablePresets = presets;
     const [files, setFiles] = useState<UploadFileCard[]>([]);
     const [selectedGeos, setSelectedGeos] = useState(['DE', 'IL']);
     const [selectedAngles, setSelectedAngles] = useState(['sugar']);
+    const [language, setLanguage] = useState('');
     const [preland, setPreland] = useState('');
+    const [uploadedIds, setUploadedIds] = useState<string[]>([]);
     const [authorComment, setAuthorComment] = useState('');
     const [parentShortId, setParentShortId] = useState('');
     const [versionLabel, setVersionLabel] = useState('');
@@ -836,7 +885,7 @@ const UploadScreen: React.FC<{
             const knownIds = new Set(current.map((file) => file.id));
             const availableSlots = Math.max(0, 50 - current.length);
             const nextFiles = selected.slice(0, availableSlots).map((file, index) => {
-                const detected = detectMetadataFromFileName(file.name);
+                const detected = detectMetadataFromFileName(file.name, geoOptions, angleOptions);
                 const hasDetectedMetadata = Boolean(
                     detected.geos?.length
                     || detected.angles?.length
@@ -991,6 +1040,9 @@ const UploadScreen: React.FC<{
             }
             formData.append('geos', JSON.stringify(selectedGeos));
             formData.append('angles', JSON.stringify(selectedAngles));
+            if (language) {
+                formData.append('language', language);
+            }
             formData.append('preland', preland);
             formData.append('authorComment', [authorComment, versionLabel].filter(Boolean).join(' · '));
             formData.append('parentShortId', parentShortId);
@@ -1036,6 +1088,11 @@ const UploadScreen: React.FC<{
                     shortId: result.creative?.short_id || result.creative?.shortId,
                 };
             }));
+            const ids = results
+                .filter((item) => item.success && item.creative)
+                .map((item) => item.creative.short_id || item.creative.shortId)
+                .filter(Boolean) as string[];
+            setUploadedIds(ids);
             setUploadMessage(`готово: ${response.data.summary.succeeded}/${response.data.summary.total}`);
             await onUploaded();
         } catch (requestError: any) {
@@ -1112,16 +1169,27 @@ const UploadScreen: React.FC<{
                     <h2>спільне для всього батчу</h2>
                     <UploadOptionGroup
                         label="гео ·"
-                        options={['DE', 'IL', 'PL', 'GB', 'US', 'FR', 'IT']}
+                        options={geoOptions}
                         selected={selectedGeos}
                         onToggle={(value) => toggleValue(value, selectedGeos, setSelectedGeos)}
                     />
                     <UploadOptionGroup
                         label="angle ·"
-                        options={angleFilters}
+                        options={angleOptions}
                         selected={selectedAngles}
                         onToggle={(value) => toggleValue(value, selectedAngles, setSelectedAngles)}
                     />
+                    {languageOptions.length > 0 && (
+                        <label className="preland-field">
+                            <span>мова крео (опц.)</span>
+                            <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+                                <option value="">не вказано</option>
+                                {languageOptions.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                     <label className="preland-field">
                         <span>преленд (опц.)</span>
                         <input
@@ -1165,6 +1233,8 @@ const UploadScreen: React.FC<{
                                 file={file}
                                 key={file.id}
                                 uploaderLabel={uploaderLabel}
+                                geoOptions={geoOptions}
+                                angleOptions={angleOptions}
                                 onRemove={() => setFiles((current) => current.filter((item) => item.id !== file.id))}
                                 onToggleOverride={() => updateFile(file.id, {
                                     override: !file.override,
@@ -1189,6 +1259,14 @@ const UploadScreen: React.FC<{
                     {uploading ? 'заливаю...' : `залити ${files.length} крео`}
                 </button>
                 <p className="upload-note">{uploadMessage || 'бот згенерує ID для кожного і повідомить'}</p>
+                {uploadedIds.length > 0 && (
+                    <button
+                        className="copy-ids"
+                        onClick={() => void navigator.clipboard.writeText(uploadedIds.join('\n'))}
+                    >
+                        скопіювати ID ({uploadedIds.length})
+                    </button>
+                )}
             </div>
         </section>
     );
@@ -1219,11 +1297,13 @@ const UploadOptionGroup: React.FC<{
 const UploadPreview: React.FC<{
     file: UploadFileCard;
     uploaderLabel: string;
+    geoOptions: string[];
+    angleOptions: string[];
     onRemove: () => void;
     onToggleOverride: () => void;
     onToggleValue: (value: string, key: 'geos' | 'angles') => void;
     onUpdate: (fileId: string, changes: Partial<UploadFileCard>) => void;
-}> = ({ file, uploaderLabel, onRemove, onToggleOverride, onToggleValue, onUpdate }) => (
+}> = ({ file, uploaderLabel, geoOptions, angleOptions, onRemove, onToggleOverride, onToggleValue, onUpdate }) => (
     <article className="upload-file-card">
         <div className={`upload-file-preview tone-${file.tone}`}>
             <span className={`override-badge status-${file.uploadStatus}`}>
@@ -1235,7 +1315,7 @@ const UploadPreview: React.FC<{
                             ? 'duplicate'
                             : file.uploadStatus}
             </span>
-            <AuthorWatermarks author={uploaderLabel} count={4} />
+            <ViewerWatermarks viewerLabel={uploaderLabel} count={4} />
         </div>
         <div>
             <strong>{file.name}</strong>
@@ -1248,13 +1328,13 @@ const UploadPreview: React.FC<{
                 <section className="file-override-panel">
                     <UploadOptionGroup
                         label="гео ·"
-                        options={['DE', 'IL', 'PL', 'GB', 'US', 'FR', 'IT']}
+                        options={geoOptions}
                         selected={file.geos}
                         onToggle={(value) => onToggleValue(value, 'geos')}
                     />
                     <UploadOptionGroup
                         label="angle ·"
-                        options={angleFilters}
+                        options={angleOptions}
                         selected={file.angles}
                         onToggle={(value) => onToggleValue(value, 'angles')}
                     />
@@ -1517,6 +1597,8 @@ const AdminScreen: React.FC<{
                     </AdminPanel>
                 </section>
 
+                <AdminUsersPanel />
+
                 <section className="admin-grid admin-wide-grid">
                     <AdminPanel title="track record баєрів">
                         <div className="buyer-record-list">
@@ -1683,18 +1765,46 @@ export const App: React.FC = () => {
     const [adminSettings, setAdminSettings] = useState<Record<string, number | boolean>>({});
     const [moderationCreatives, setModerationCreatives] = useState<ModerationCreative[]>([]);
     const [adminModerationStatus, setAdminModerationStatus] = useState('pending_review');
+    const [referenceLists, setReferenceLists] = useState({
+        geos: defaultGeos,
+        angles: defaultAngles,
+        languages: [] as string[],
+    });
+    const [topWeekCreatives, setTopWeekCreatives] = useState<CreativeCard[]>([]);
 
-    const loadAppData = async (nextArchiveMode = archiveMode) => {
+    const loadAppData = async (
+        nextArchiveMode = archiveMode,
+        nextSort = sortMode,
+        nextQuery = query,
+        nextGeo = activeGeo,
+        nextAngle = activeAngle,
+        nextStatus = activeStatus,
+    ) => {
         const catalogParams = new URLSearchParams();
         if (nextArchiveMode) {
             catalogParams.set('archived', 'true');
         }
+        if (nextGeo) {
+            catalogParams.set('geos', nextGeo);
+        }
+        if (nextAngle) {
+            catalogParams.set('angles', nextAngle);
+        }
+        if (nextStatus) {
+            catalogParams.set('status', nextStatus);
+        }
+        catalogParams.set('sort', nextSort);
+        if (nextQuery.trim()) {
+            catalogParams.set('q', nextQuery.trim());
+        }
 
-        const [catalogResponse, activityResponse, bookmarksResponse, profileResponse] = await Promise.all([
-            apiClient.get(`/api/creatives${catalogParams.toString() ? `?${catalogParams.toString()}` : ''}`),
+        const [catalogResponse, activityResponse, bookmarksResponse, profileResponse, referenceResponse, topWeekResponse] = await Promise.all([
+            apiClient.get(`/api/creatives?${catalogParams.toString()}`),
             apiClient.get('/api/app/activity/week'),
             apiClient.get('/api/app/bookmarks'),
             apiClient.get('/api/app/profile'),
+            apiClient.get('/api/app/reference'),
+            apiClient.get('/api/app/top/week'),
         ]);
         const bookmarks = bookmarksResponse.data.data.map(normalizeCreative);
         const bookmarkIds = new Set(bookmarks.map((creative: CreativeCard) => creative.id));
@@ -1708,6 +1818,8 @@ export const App: React.FC = () => {
         setBookmarkCreatives(bookmarks.map((creative: CreativeCard) => ({ ...creative, bookmarked: true })));
         setProfile(profileResponse.data.data);
         setTotal(catalogResponse.data.pagination.total);
+        setReferenceLists(referenceResponse.data.data);
+        setTopWeekCreatives(topWeekResponse.data.data.map((item: Record<string, any>, index: number) => normalizeCreative(item, index)));
     };
 
     const loadAdminData = async (moderationStatus = adminModerationStatus) => {
@@ -1903,33 +2015,23 @@ export const App: React.FC = () => {
         return () => window.removeEventListener('keydown', closeOnEscape);
     }, [selectedCreative]);
 
-    const visibleCreatives = useMemo(() => {
-        const normalizedQuery = query.trim().toLowerCase();
+    const viewerLabel = profile?.user.username
+        ? `@${profile.user.username}`
+        : profile?.user.displayName || 'невідомо';
 
-        return creatives.filter((creative) => {
-            const matchesGeo = !activeGeo || creative.geos.includes(activeGeo);
-            const matchesAngle = !activeAngle
-                || creative.angles.some((angle) => angle.toLowerCase() === activeAngle.toLowerCase());
-            const matchesStatus = !activeStatus || creative.status === activeStatus;
-            const searchable = [
-                creative.shortId,
-                creative.author,
-                ...creative.geos,
-                ...creative.angles,
-            ].join(' ').toLowerCase();
+    const visibleCreatives = creatives;
 
-            return matchesGeo
-                && matchesAngle
-                && matchesStatus
-                && (!normalizedQuery || searchable.includes(normalizedQuery));
-        }).sort((left, right) => {
-            if (sortMode === 'tests') {
-                return right.geos.length + right.angles.length - left.geos.length - left.angles.length;
-            }
+    useEffect(() => {
+        if (!profile) {
+            return;
+        }
 
-            return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
-        });
-    }, [activeAngle, activeGeo, activeStatus, creatives, query, sortMode]);
+        const reload = setTimeout(() => {
+            void loadAppData(archiveMode, sortMode, query, activeGeo, activeAngle, activeStatus);
+        }, 300);
+
+        return () => clearTimeout(reload);
+    }, [sortMode, query, activeGeo, activeAngle, activeStatus, archiveMode, profile?.user.id]);
 
     if (!isTelegramMiniApp) {
         return (
@@ -2013,7 +2115,12 @@ export const App: React.FC = () => {
                     <section className="creative-grid bookmark-grid">
                         {bookmarkCreatives.length === 0 && <p className="state-message">закладок поки немає</p>}
                         {bookmarkCreatives.map((creative) => (
-                            <BookmarkPreview creative={creative} key={creative.id} onOpen={setSelectedCreative} />
+                            <BookmarkPreview
+                                creative={creative}
+                                key={creative.id}
+                                viewerLabel={viewerLabel}
+                                onOpen={setSelectedCreative}
+                            />
                         ))}
                     </section>
                 </section>
@@ -2039,11 +2146,10 @@ export const App: React.FC = () => {
                 <div className="noise" />
                 <UploadScreen
                     presets={profile?.presets || []}
-                    uploaderLabel={
-                        profile?.user.username
-                            ? `@${profile.user.username}`
-                            : profile?.user.displayName || 'невідомо'
-                    }
+                    uploaderLabel={viewerLabel}
+                    geoOptions={referenceLists.geos}
+                    angleOptions={referenceLists.angles}
+                    languageOptions={referenceLists.languages}
                     telegramUploadSessionId={telegramUploadSessionId}
                     onUploaded={loadAppData}
                 />
@@ -2152,13 +2258,13 @@ export const App: React.FC = () => {
                         <div className="filter-panel">
                             <FilterGroup
                                 label="гео"
-                                options={geoFilters}
+                                options={referenceLists.geos}
                                 activeOption={activeGeo}
                                 onSelect={setActiveGeo}
                             />
                             <FilterGroup
                                 label="angle"
-                                options={angleFilters}
+                                options={referenceLists.angles}
                                 activeOption={activeAngle}
                                 onSelect={setActiveAngle}
                             />
@@ -2177,15 +2283,37 @@ export const App: React.FC = () => {
                                     найновіші
                                 </button>
                                 <button
-                                    className={sortMode === 'tests' ? 'active' : ''}
-                                    onClick={() => setSortMode('tests')}
+                                    className={sortMode === 'confirmations' ? 'active' : ''}
+                                    onClick={() => setSortMode('confirmations')}
                                 >
-                                    найбільше тестів
+                                    підтвердження
+                                </button>
+                                <button
+                                    className={sortMode === 'updated' ? 'active' : ''}
+                                    onClick={() => setSortMode('updated')}
+                                >
+                                    оновлення
                                 </button>
                             </div>
                         </div>
                     )}
                 </div>
+
+                {topWeekCreatives.length > 0 && !archiveMode && (
+                    <section className="top-week-strip">
+                        <h2>топ тижня</h2>
+                        <div className="creative-grid compact">
+                            {topWeekCreatives.slice(0, 6).map((creative) => (
+                                <CreativePreview
+                                    creative={creative}
+                                    key={`top-${creative.id}`}
+                                    viewerLabel={viewerLabel}
+                                    onOpen={setSelectedCreative}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 <section className="creative-grid" aria-live="polite">
                     {loading && <p className="state-message">завантаження каталогу...</p>}
@@ -2194,7 +2322,12 @@ export const App: React.FC = () => {
                         <p className="state-message">нічого не знайдено</p>
                     )}
                     {visibleCreatives.map((creative) => (
-                        <CreativePreview creative={creative} key={creative.id} onOpen={setSelectedCreative} />
+                        <CreativePreview
+                            creative={creative}
+                            key={creative.id}
+                            viewerLabel={viewerLabel}
+                            onOpen={setSelectedCreative}
+                        />
                     ))}
                 </section>
             </section>

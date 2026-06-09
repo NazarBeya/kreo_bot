@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
+import jwt from 'jsonwebtoken';
 import { requireAuth } from '../../middleware/auth.js';
-import { getCreativeByShortId, getCreativeVersionHistory, searchCreatives, getCreativeById } from '../../services/creative.js';
-import { uploadCreativeMedia } from '../../services/media.js';
+import { getCreativeByShortId, getCreativeVersionHistory, searchCreatives, getCreativeById, type CreativeSortMode } from '../../services/creative.js';
+import { applyWatermarkToPreview, uploadCreativeMedia } from '../../services/media.js';
+import { getObject } from '../../services/storage.js';
+import { getViewerWatermarkLabel } from '../../services/user.js';
 import { notifyCreativeDownloaded, notifySubscribersAboutCreative } from '../../services/notifications.js';
 import { logger } from '../../logger.js';
 import { isValidFileSize, isValidGeoCode, sanitizeString } from '../../utils/validation.js';
@@ -122,10 +125,24 @@ creativeRouter.get('/', requireAuth, async (req: Request, res: Response) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = (page - 1) * limit;
     const archivedOnly = req.query.archived === 'true' || req.query.archived === '1';
+    const sort = (['newest', 'confirmations', 'updated'].includes(String(req.query.sort))
+      ? String(req.query.sort)
+      : 'newest') as CreativeSortMode;
+    const queryText = req.query.q ? String(req.query.q) : undefined;
 
     const authorId = req.user?.role === 'designer' ? req.user.id : undefined;
 
-    const { creatives, total } = await searchCreatives(geos, angles, status, limit, offset, authorId, archivedOnly);
+    const { creatives, total } = await searchCreatives(
+      geos,
+      angles,
+      status,
+      limit,
+      offset,
+      authorId,
+      archivedOnly,
+      sort,
+      queryText
+    );
 
     res.json({
       data: creatives,
@@ -405,6 +422,92 @@ creativeRouter.post(
   }
 );
 
+const resolvePreviewUser = async (req: Request) => {
+  if (req.user) {
+    return req.user;
+  }
+
+  const token = String(req.query.token || '');
+  if (!token) {
+    return null;
+  }
+
+  const decoded = jwt.verify(token, config.jwtSecret) as { telegramId: number };
+  const result = await query(
+    'SELECT id, telegram_id, username, display_name, role, is_active FROM users WHERE telegram_id = $1 LIMIT 1',
+    [decoded.telegramId]
+  );
+  return result.rows[0] || null;
+};
+
+creativeRouter.get('/:id/preview', async (req: Request, res: Response) => {
+  try {
+    const viewer = await resolvePreviewUser(req);
+    if (!viewer || !viewer.is_active) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { id } = req.params;
+    let creative = await getCreativeByShortId(id);
+    if (!creative) {
+      creative = await getCreativeById(id);
+    }
+    if (!creative) {
+      return res.status(404).json({ error: 'Creative not found' });
+    }
+
+    const previewSource = (creative as any).preview_url || creative.previewUrl;
+    const previewBuffer = await getObject(previewSource);
+    const watermark = getViewerWatermarkLabel(viewer);
+    const watermarked = await applyWatermarkToPreview(previewBuffer, watermark);
+
+    res.setHeader('Content-Type', 'image/webp');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(watermarked);
+  } catch (error) {
+    logger.error(error, 'Error generating watermarked preview');
+    res.status(500).json({ error: 'Failed to generate preview' });
+  }
+});
+
+creativeRouter.get('/:id/context', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    let creative = await getCreativeByShortId(id);
+    if (!creative) {
+      creative = await getCreativeById(id);
+    }
+    if (!creative) {
+      return res.status(404).json({ error: 'Creative not found' });
+    }
+
+    const [downloadResult, statusResult] = await Promise.all([
+      query(
+        'SELECT id, created_at FROM downloads WHERE creative_id = $1 AND user_id = $2 ORDER BY created_at DESC LIMIT 1',
+        [creative.id, req.user.id]
+      ),
+      query(
+        `SELECT geo_code, status, test_volume, roi_category, comment, updated_at
+         FROM creative_statuses
+         WHERE creative_id = $1 AND buyer_id = $2
+         ORDER BY updated_at DESC`,
+        [creative.id, req.user.id]
+      ),
+    ]);
+
+    res.json({
+      data: {
+        hasDownloaded: downloadResult.rows.length > 0,
+        downloadedAt: downloadResult.rows[0]?.created_at || null,
+        myStatuses: statusResult.rows,
+      },
+    });
+  } catch (error) {
+    logger.error(error, 'Error fetching creative context');
+    res.status(500).json({ error: 'Failed to fetch creative context' });
+  }
+});
+
 creativeRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -470,7 +573,10 @@ creativeRouter.get('/:id/download', requireAuth, async (req: Request, res: Respo
     const fileResult = await query('SELECT file_url FROM creatives WHERE id = $1', [creative.id]);
     const fileUrl = fileResult.rows[0]?.file_url || creative.fileUrl || (creative as any).file_url;
 
-    res.json({ url: getSignedUrl(fileUrl, config.signedUrls.downloadTtlSeconds) });
+    res.json({
+      url: getSignedUrl(fileUrl, config.signedUrls.downloadTtlSeconds),
+      hasDownloaded: true,
+    });
   } catch (error) {
     logger.error(error, 'Error tracking download');
     res.status(500).json({ error: 'Failed to process download' });

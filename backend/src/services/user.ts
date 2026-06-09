@@ -5,7 +5,7 @@ import { logger } from '../logger.js';
 export const getUserByTelegramId = async (telegramId: number): Promise<User | null> => {
   try {
     const result = await query(
-      'SELECT id, telegram_id, username, display_name, role, is_active, created_at, last_active_at FROM users WHERE telegram_id = $1',
+      'SELECT id, telegram_id, username, display_name, role, is_active, created_at, last_active_at, download_restricted_until FROM users WHERE telegram_id = $1',
       [telegramId]
     );
     return result.rows[0] || null;
@@ -15,11 +15,12 @@ export const getUserByTelegramId = async (telegramId: number): Promise<User | nu
   }
 };
 
-export const findOrCreateUser = async (
+/** Whitelist auth: update existing user. Bootstrap first team lead only when DB is empty. */
+export const authenticateUser = async (
   telegramId: number,
   username?: string,
   displayName?: string
-): Promise<User> => {
+): Promise<User | null> => {
   try {
     const existing = await getUserByTelegramId(telegramId);
 
@@ -30,33 +31,31 @@ export const findOrCreateUser = async (
              display_name = COALESCE($3, users.display_name),
              last_active_at = NOW()
          WHERE telegram_id = $1
-         RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at`,
+         RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at, download_restricted_until`,
         [telegramId, username, displayName]
       );
       return result.rows[0];
     }
 
-    const adminCount = await query(
-      `SELECT COUNT(*)::int AS count FROM users WHERE role IN ('admin', 'lead')`
-    );
-    const role: UserRole = adminCount.rows[0]?.count === 0 ? 'lead' : 'buyer';
+    const countResult = await query('SELECT COUNT(*)::int AS count FROM users');
+    if (countResult.rows[0]?.count !== 0) {
+      return null;
+    }
 
     const result = await query(
       `INSERT INTO users (telegram_id, username, display_name, role, is_active, last_active_at)
-       VALUES ($1, $2, $3, $4, true, NOW())
-       RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at`,
-      [telegramId, username || null, displayName || null, role]
+       VALUES ($1, $2, $3, 'lead', true, NOW())
+       RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at, download_restricted_until`,
+      [telegramId, username || null, displayName || null]
     );
 
-    logger.info({ telegramId, role }, 'Auto-registered new user');
+    logger.info({ telegramId }, 'Bootstrapped first team lead user');
     return result.rows[0];
   } catch (error) {
-    logger.error(error, 'Error finding or creating user');
+    logger.error(error, 'Error authenticating user');
     throw error;
   }
 };
-
-export const authenticateUser = findOrCreateUser;
 
 export const getActiveUsers = async (): Promise<User[]> => {
   try {
@@ -84,4 +83,11 @@ export const updateUserLastActive = async (userId: string): Promise<void> => {
     logger.error(error, 'Error updating user last active');
     throw error;
   }
+};
+
+export const getViewerWatermarkLabel = (user: Pick<User, 'username' | 'display_name'>): string => {
+  if (user.username) {
+    return `@${user.username}`;
+  }
+  return user.display_name || '@viewer';
 };

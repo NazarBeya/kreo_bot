@@ -7,7 +7,6 @@ import sharp from 'sharp';
 import { hashFile } from '../utils/crypto.js';
 import { checkDuplicateHash, createCreative } from './creative.js';
 import { ensureBucket, putObject } from './storage.js';
-import { query } from '../db/pool.js';
 
 const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']);
 const videoMimeTypes = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
@@ -32,13 +31,7 @@ const escapeSvgText = (value: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-const getWatermarkText = async (authorId: string) => {
-  const result = await query('SELECT username, display_name FROM users WHERE id = $1 LIMIT 1', [authorId]);
-  const user = result.rows[0];
-  const name = user?.username ? `@${user.username}` : user?.display_name || '@creative_bot';
-
-  return name.slice(0, 64);
-};
+export const getWatermarkText = (label: string) => label.slice(0, 64);
 
 const createWatermarkSvg = (width: number, height: number, text: string) => {
   const fontSize = Math.max(22, Math.round(Math.min(width, height) / 18));
@@ -66,7 +59,7 @@ const createWatermarkSvg = (width: number, height: number, text: string) => {
   `);
 };
 
-const applyWatermarkToPreview = async (preview: Buffer, watermarkText: string) => {
+export const applyWatermarkToPreview = async (preview: Buffer, watermarkText: string) => {
   const metadata = await sharp(preview).metadata();
 
   if (!metadata.width || !metadata.height) {
@@ -139,14 +132,12 @@ const uploadImageCreative = async (input: UploadCreativeInput, fileHash: string)
   const originalName = path.basename(input.file.originalname || `creative.${ext}`).replace(/[^\w.-]/g, '_');
   const fileKey = `${folder}/${originalName}`;
   const previewKey = `${folder}/preview.webp`;
-  const watermarkText = await getWatermarkText(input.authorId);
 
-  const resizedPreview = await sharp(input.file.buffer)
+  const preview = await sharp(input.file.buffer)
     .rotate()
     .resize({ width: 720, height: 720, fit: 'inside', withoutEnlargement: true })
     .webp({ quality: 82 })
     .toBuffer();
-  const preview = await applyWatermarkToPreview(resizedPreview, watermarkText);
 
   await ensureBucket();
 
@@ -185,7 +176,6 @@ const uploadVideoCreative = async (input: UploadCreativeInput, fileHash: string)
   const tempDir = path.join(tmpdir(), `creative-${fileHash}`);
   const inputPath = path.join(tempDir, `input.${ext}`);
   const previewPath = path.join(tempDir, 'preview.webp');
-  const watermarkText = await getWatermarkText(input.authorId);
 
   try {
     await mkdir(tempDir, { recursive: true });
@@ -225,7 +215,7 @@ const uploadVideoCreative = async (input: UploadCreativeInput, fileHash: string)
       previewPath,
     ]);
 
-    const preview = await applyWatermarkToPreview(await readFile(previewPath), watermarkText);
+    const preview = await readFile(previewPath);
     await ensureBucket();
 
     const [fileUrl, previewUrl] = await Promise.all([

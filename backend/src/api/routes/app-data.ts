@@ -4,6 +4,8 @@ import { query } from '../../db/pool.js';
 import { sanitizeString } from '../../utils/validation.js';
 import { logger } from '../../logger.js';
 import { getTelegramUploadSession } from '../../services/telegram-upload-session.js';
+import { createNotification } from '../../services/notifications.js';
+import { getCreativeById } from '../../services/creative.js';
 
 export const appDataRouter = Router();
 
@@ -15,7 +17,10 @@ const notificationTypes = [
   'burnout',
   'comment',
   'resurrection',
+  'mention',
 ];
+
+const defaultGeos = ['DE', 'IL', 'PL', 'GB', 'US'];
 
 const parseStringArray = (value: unknown, maxLength = 64): string[] => {
   if (!value) {
@@ -44,6 +49,34 @@ const presetFields = `
 `;
 
 const subscriptionFields = 'id, geo_code, angle, created_at';
+
+appDataRouter.get('/reference', requireAuth, async (_req: Request, res: Response) => {
+  try {
+    const [anglesResult, languagesResult] = await Promise.all([
+      query(
+        `SELECT value FROM reference_lists
+         WHERE list_type = 'angle' AND is_active = true
+         ORDER BY sort_order ASC, value ASC`
+      ),
+      query(
+        `SELECT value FROM reference_lists
+         WHERE list_type = 'language' AND is_active = true
+         ORDER BY sort_order ASC, value ASC`
+      ),
+    ]);
+
+    res.json({
+      data: {
+        geos: defaultGeos,
+        angles: anglesResult.rows.map((row: { value: string }) => row.value),
+        languages: languagesResult.rows.map((row: { value: string }) => row.value),
+      },
+    });
+  } catch (error) {
+    logger.error(error, 'Error fetching reference lists');
+    res.status(500).json({ error: 'Failed to fetch reference lists' });
+  }
+});
 
 appDataRouter.get('/upload-sessions/:id', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -749,14 +782,24 @@ appDataRouter.delete('/notification-settings', requireAuth, async (req: Request,
   }
 });
 
+const parseMentions = (text: string) => {
+  const matches = text.match(/@([a-zA-Z0-9_]{3,64})/g) || [];
+  return [...new Set(matches.map((mention) => mention.slice(1).toLowerCase()))];
+};
+
 appDataRouter.get('/creatives/:creativeId/comments', requireAuth, async (req: Request, res: Response) => {
   try {
     const result = await query(
-      `SELECT cm.id, cm.text, cm.created_at, u.username, u.display_name
+      `SELECT cm.id,
+              cm.text,
+              cm.created_at,
+              cm.parent_id,
+              u.username,
+              u.display_name
        FROM comments cm
        JOIN users u ON u.id = cm.author_id
        WHERE cm.creative_id = $1
-       ORDER BY cm.created_at DESC`,
+       ORDER BY COALESCE(cm.parent_id, cm.id) DESC, cm.created_at ASC`,
       [req.params.creativeId]
     );
 
@@ -770,23 +813,69 @@ appDataRouter.get('/creatives/:creativeId/comments', requireAuth, async (req: Re
 appDataRouter.post('/creatives/:creativeId/comments', requireAuth, async (req: Request, res: Response) => {
   try {
     const text = sanitizeString(String(req.body.text || ''), 2000);
+    const parentId = req.body.parentId ? sanitizeString(String(req.body.parentId), 64) : null;
 
     if (!text) {
       return res.status(400).json({ error: 'Comment text is required' });
     }
 
+    if (parentId) {
+      const parentResult = await query(
+        'SELECT id FROM comments WHERE id = $1 AND creative_id = $2 LIMIT 1',
+        [parentId, req.params.creativeId]
+      );
+      if (parentResult.rows.length === 0) {
+        return res.status(400).json({ error: 'Parent comment not found' });
+      }
+    }
+
     const result = await query(
-      `INSERT INTO comments (creative_id, author_id, text)
-       VALUES ($1, $2, $3)
-       RETURNING id, text, created_at`,
-      [req.params.creativeId, req.user.id, text]
+      `INSERT INTO comments (creative_id, author_id, text, parent_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, text, created_at, parent_id`,
+      [req.params.creativeId, req.user.id, text, parentId]
     );
 
     await query(
       `INSERT INTO audit_log (user_id, action, target_type, target_id, metadata)
        VALUES ($1, 'comment', 'creative', $2, $3)`,
-      [req.user.id, req.params.creativeId, JSON.stringify({ text })]
+      [req.user.id, req.params.creativeId, JSON.stringify({ text, parentId })]
     );
+
+    const creative = await getCreativeById(req.params.creativeId);
+    const authorId = (creative as any)?.author_id || creative?.authorId;
+    const shortId = (creative as any)?.short_id || creative?.shortId;
+    const actorName = req.user.username ? `@${req.user.username}` : req.user.display_name || 'користувач';
+
+    if (authorId && authorId !== req.user.id) {
+      await createNotification(authorId, 'comment', {
+        creativeId: req.params.creativeId,
+        shortId,
+        text: `${actorName} залишив коментар під ${shortId}`,
+      });
+    }
+
+    const mentions = parseMentions(text);
+    if (mentions.length > 0) {
+      const mentionedUsers = await query(
+        `SELECT id, username FROM users
+         WHERE LOWER(username) = ANY($1::TEXT[])
+           AND is_active = true`,
+        [mentions]
+      );
+
+      await Promise.all(
+        mentionedUsers.rows
+          .filter((user: { id: string }) => user.id !== req.user.id)
+          .map((user: { id: string; username: string }) =>
+            createNotification(user.id, 'mention', {
+              creativeId: req.params.creativeId,
+              shortId,
+              text: `${actorName} згадав тебе в коментарі до ${shortId}`,
+            })
+          )
+      );
+    }
 
     res.status(201).json({
       data: {

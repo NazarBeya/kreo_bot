@@ -31,6 +31,10 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
     const displayName = [userData.first_name, userData.last_name].filter(Boolean).join(' ') || undefined;
     const user = await authenticateUser(userData.id, userData.username, displayName);
 
+    if (!user) {
+      return res.status(403).json({ error: 'User is not whitelisted. Please contact the administrator.' });
+    }
+
     if (!user.is_active) {
       return res.status(403).json({ error: 'User account is disabled' });
     }

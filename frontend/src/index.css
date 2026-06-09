@@ -1377,3 +1377,64 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
     font-size: 32px;
   }
 }
+
+.status-form {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  background: rgba(255, 208, 0, 0.04);
+}
+
+.status-form h3,
+.top-week-strip h2 {
+  margin: 0 0 8px;
+  color: #ffd000;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.status-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.status-form select,
+.status-form input,
+.status-form button {
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #111;
+  color: #f2f1ee;
+  padding: 0 12px;
+}
+
+.top-week-strip {
+  padding: 0 5.2% 18px;
+}
+
+.top-week-strip .creative-grid.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.copy-ids {
+  margin-top: 12px;
+  min-height: 44px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #181818;
+  color: #ffd000;
+}
+
+.comment-card.reply {
+  margin-left: 18px;
+  border-left: 2px solid #333;
+  padding-left: 10px;
+}

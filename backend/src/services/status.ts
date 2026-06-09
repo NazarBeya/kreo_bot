@@ -3,7 +3,7 @@ import type { CreativeStatus, TestingStatus, TestVolume, ROICategory } from '../
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { getNumericSetting } from './admin-settings.js';
-import { notifyCreativeBurnout } from './notifications.js';
+import { createNotification, notifyCreativeBurnout } from './notifications.js';
 
 export interface SetStatusInput {
   creativeId: string;
@@ -145,7 +145,34 @@ export const setCreativeStatus = async (input: SetStatusInput) => {
       );
     }
 
+    const authorResult = await client.query(
+      `SELECT c.author_id, c.short_id, u.username, u.display_name
+       FROM creatives c
+       JOIN users u ON u.id = $1
+       WHERE c.id = $2`,
+      [input.buyerId, input.creativeId]
+    );
+    const authorId = authorResult.rows[0]?.author_id;
+    const shortId = authorResult.rows[0]?.short_id;
+    const buyerName = authorResult.rows[0]?.username
+      ? `@${authorResult.rows[0].username}`
+      : authorResult.rows[0]?.display_name || 'баєр';
+
     await client.query('COMMIT');
+
+    if (authorId && authorId !== input.buyerId) {
+      try {
+        await createNotification(authorId, 'status_update', {
+          creativeId: input.creativeId,
+          shortId,
+          status: input.status,
+          geoCode: input.geoCode,
+          text: `${buyerName} поставив «${input.status}» на ${shortId} (${input.geoCode})`,
+        });
+      } catch (notificationError) {
+        logger.error(notificationError, 'Error sending status update notification');
+      }
+    }
 
     if (shouldNotifyBurnout) {
       try {

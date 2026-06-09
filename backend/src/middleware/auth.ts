@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../logger.js';
 import { config } from '../config.js';
-import { findOrCreateUser, getUserByTelegramId, updateUserLastActive } from '../services/user.js';
+import { getUserByTelegramId, updateUserLastActive } from '../services/user.js';
 import { validateTelegramInitData } from '../utils/crypto.js';
 import jwt from 'jsonwebtoken';
 
@@ -39,9 +39,12 @@ export const telegramAuth = async (
 
     const userData = JSON.parse(userJson);
     const telegramId = userData.id;
-    const displayName = [userData.first_name, userData.last_name].filter(Boolean).join(' ') || undefined;
 
-    const user = await findOrCreateUser(telegramId, userData.username, displayName);
+    const user = await getUserByTelegramId(telegramId);
+
+    if (!user) {
+      return res.status(403).json({ error: 'User is not whitelisted. Please contact the administrator.' });
+    }
 
     if (!user.is_active) {
       return res.status(403).json({ error: 'User account disabled' });

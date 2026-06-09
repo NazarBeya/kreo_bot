@@ -5,7 +5,7 @@ import { logger } from '../logger.js';
 import type { Creative } from '../types/domain.js';
 import { getNumericSetting } from './admin-settings.js';
 
-type NotificationType = 'new_creative' | 'download' | 'reminder' | 'resurrection' | 'burnout';
+type NotificationType = 'new_creative' | 'download' | 'reminder' | 'resurrection' | 'burnout' | 'comment' | 'mention' | 'status_update';
 
 interface NotificationJob {
   notificationId: string;

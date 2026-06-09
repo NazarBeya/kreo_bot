@@ -119,6 +119,35 @@ export const ensureBucket = async () => {
   }
 };
 
+export const extractObjectKey = (fileUrlOrKey: string): string => {
+  if (!fileUrlOrKey) {
+    return '';
+  }
+
+  const publicBase = config.s3.publicUrl.replace(/\/$/, '') + '/' + config.s3.bucket + '/';
+  if (fileUrlOrKey.startsWith(publicBase)) {
+    return decodeURIComponent(fileUrlOrKey.substring(publicBase.length));
+  }
+
+  if (fileUrlOrKey.startsWith('http')) {
+    const parts = new URL(fileUrlOrKey).pathname.split('/');
+    const bucketIndex = parts.findIndex((part) => part === config.s3.bucket);
+    if (bucketIndex >= 0) {
+      return decodeURIComponent(parts.slice(bucketIndex + 1).join('/'));
+    }
+    return decodeURIComponent(parts[parts.length - 1]);
+  }
+
+  return fileUrlOrKey.replace(/^\/+/, '');
+};
+
+export const getObject = async (fileUrlOrKey: string): Promise<Buffer> => {
+  const key = extractObjectKey(fileUrlOrKey);
+  const response = await requestObjectStorage('GET', `/${config.s3.bucket}/${encodePath(key)}`);
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+};
+
 export const putObject = async ({ key, body, contentType }: PutObjectInput): Promise<string> => {
   await requestObjectStorage('PUT', `/${config.s3.bucket}/${encodePath(key)}`, body, contentType);
 

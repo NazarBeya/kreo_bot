@@ -3,7 +3,7 @@ import { conversations, createConversation } from '@grammyjs/conversations';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { MyContext, uploadWizard, searchWizard } from './conversations.js';
-import { findOrCreateUser, getUserByTelegramId } from '../services/user.js';
+import { getUserByTelegramId, isUserAdmin } from '../services/user.js';
 import { createTelegramUploadSession, TelegramUploadSessionFile } from '../services/telegram-upload-session.js';
 import { query } from '../db/pool.js';
 
@@ -11,9 +11,12 @@ export const bot = new Bot<MyContext>(config.telegram.botToken);
 
 export const setupBotMenu = async () => {
   await bot.api.setMyCommands([
-    { command: 'start', description: 'Відкрити каталог' },
-    { command: 'search', description: 'Пошук креативів' },
-    { command: 'admin', description: 'Адмін-панель' },
+    { command: 'start', description: 'Головне меню' },
+    { command: 'upload', description: 'Залити крео' },
+    { command: 'search', description: 'Знайти крео' },
+    { command: 'settings', description: 'Налаштування' },
+    { command: 'admin', description: 'Адмін-панель (lead/admin)' },
+    { command: 'help', description: 'Допомога' },
   ]);
   await bot.api.setChatMenuButton({
     menu_button: { type: 'commands' },
@@ -28,31 +31,107 @@ bot.use(conversations());
 bot.use(createConversation(uploadWizard as any));
 bot.use(createConversation(searchWizard as any));
 
+const requireWhitelistedUser = async (ctx: MyContext) => {
+  if (!ctx.from) {
+    return null;
+  }
+
+  const user = await getUserByTelegramId(ctx.from.id);
+  if (!user || !user.is_active) {
+    await ctx.reply('❌ Доступ заборонено. Зверніться до тімліда для додавання в whitelist.');
+    return null;
+  }
+
+  return user;
+};
+
+const mainMenuKeyboard = () => {
+  if (!config.miniAppUrl.startsWith('https://')) {
+    return undefined;
+  }
+
+  return new InlineKeyboard()
+    .webApp('📂 Каталог', config.miniAppUrl)
+    .row()
+    .text('📤 Залити крео', 'action:upload')
+    .text('🔎 Знайти крео', 'action:search')
+    .row()
+    .webApp('⚙️ Налаштування', `${config.miniAppUrl}?screen=profile`);
+};
+
 bot.command('start', async (ctx) => {
   logger.info({ userId: ctx.from?.id }, 'User started bot');
-
-  if (!config.miniAppUrl.startsWith('https://')) {
-    logger.warn(
-      { miniAppUrl: config.miniAppUrl },
-      'Telegram Web App button disabled: MINI_APP_URL must use HTTPS'
-    );
-    await ctx.reply(
-      'Creative Bot\n\nКаталог тимчасово недоступний. Налаштуйте MINI_APP_URL з HTTPS-адресою.'
-    );
+  const user = await requireWhitelistedUser(ctx);
+  if (!user) {
     return;
   }
 
-  const keyboard = new InlineKeyboard().webApp('Відкрити каталог', config.miniAppUrl);
-  await ctx.reply('Creative Bot\n\nВідкрийте каталог креативів кнопкою нижче.', {
-    reply_markup: keyboard,
+  await ctx.reply(
+    'Привіт! Я бот команди для управління крео.\n\nОбери дію нижче або скористайся меню команд зліва.',
+    { reply_markup: mainMenuKeyboard() }
+  );
+});
+
+bot.command('help', async (ctx) => {
+  await ctx.reply(
+    [
+      'Доступні команди:',
+      '/start — головне меню',
+      '/upload — заливка через бот або Mini App',
+      '/search — пошук по ID, GEO або angle',
+      '/settings — профіль і пуші в Mini App',
+      '/admin — адмін-панель (lead/admin)',
+    ].join('\n')
+  );
+});
+
+bot.command('settings', async (ctx) => {
+  const user = await requireWhitelistedUser(ctx);
+  if (!user || !config.miniAppUrl.startsWith('https://')) {
+    return;
+  }
+
+  const settingsUrl = new URL(config.miniAppUrl);
+  settingsUrl.searchParams.set('screen', 'profile');
+  await ctx.reply('Відкрий налаштування в Mini App:', {
+    reply_markup: new InlineKeyboard().webApp('⚙️ Налаштування', settingsUrl.toString()),
+  });
+});
+
+bot.command('upload', async (ctx) => {
+  const user = await requireWhitelistedUser(ctx);
+  if (!user) {
+    return;
+  }
+
+  await ctx.reply('Обери спосіб заливки:', {
+    reply_markup: new InlineKeyboard()
+      .text('🤖 Через бот', 'upload:bot')
+      .row()
+      .webApp('📱 Через Mini App', `${config.miniAppUrl}?screen=upload`),
   });
 });
 
 bot.command('search', async (ctx) => {
+  const user = await requireWhitelistedUser(ctx);
+  if (!user) {
+    return;
+  }
+
   await ctx.conversation.enter('searchWizard');
 });
 
 bot.command('admin', async (ctx) => {
+  const user = await requireWhitelistedUser(ctx);
+  if (!user) {
+    return;
+  }
+
+  if (!isUserAdmin(user)) {
+    await ctx.reply('❌ Адмін-панель доступна лише lead/admin.');
+    return;
+  }
+
   if (!config.miniAppUrl.startsWith('https://')) {
     await ctx.reply('Адмін-дашборд тимчасово недоступний. MINI_APP_URL має бути HTTPS.');
     return;
@@ -63,6 +142,22 @@ bot.command('admin', async (ctx) => {
   const keyboard = new InlineKeyboard().webApp('Відкрити адмінку', adminUrl.toString());
   await ctx.reply('Адмін-дашборд', { reply_markup: keyboard });
 });
+
+bot.callbackQuery('action:upload', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.reply('Обери спосіб заливки:', {
+    reply_markup: new InlineKeyboard()
+      .text('🤖 Через бот', 'upload:bot')
+      .row()
+      .webApp('📱 Через Mini App', `${config.miniAppUrl}?screen=upload`),
+  });
+});
+
+bot.callbackQuery('action:search', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.conversation.enter('searchWizard');
+});
+
 
 bot.callbackQuery(/^lc:([^:]+):(actual|fading|not_running)$/, async (ctx) => {
   const [, creativeId, lifecycleStatus] = ctx.match;
@@ -155,15 +250,8 @@ const mediaToSessionFile = (message: any): TelegramUploadSessionFile | null => {
 };
 
 const openUploadMiniApp = async (ctx: MyContext, messages: any[]) => {
-  if (!ctx.from) {
-    return;
-  }
-
-  const displayName = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ') || undefined;
-  const user = await findOrCreateUser(ctx.from.id, ctx.from.username, displayName);
-
-  if (!user.is_active) {
-    await ctx.reply('Access denied. Please contact the administrator.');
+  const user = await requireWhitelistedUser(ctx);
+  if (!user) {
     return;
   }
 
@@ -197,19 +285,28 @@ const openUploadMiniApp = async (ctx: MyContext, messages: any[]) => {
   );
 };
 
-bot.on(['message:photo', 'message:video', 'message:document'], async (ctx, next) => {
+bot.on(['message:photo', 'message:video', 'message:document'], async (ctx) => {
+  const user = await requireWhitelistedUser(ctx);
+  if (!user) {
+    return;
+  }
+
   const mediaGroupId = ctx.message.media_group_id;
 
   if (mediaGroupId) {
     if (!ctx.session.mediaGroup || ctx.session.mediaGroup.id !== mediaGroupId) {
       ctx.session.mediaGroup = { id: mediaGroupId, messages: [ctx.message] };
-      
+
       setTimeout(async () => {
         try {
           const group = ctx.session.mediaGroup;
           if (group?.id === mediaGroupId) {
             ctx.session.mediaGroup = undefined;
-            await openUploadMiniApp(ctx, group.messages);
+            if (ctx.session.uploadMode === 'bot') {
+              await ctx.conversation.enter('uploadWizard');
+            } else {
+              await openUploadMiniApp(ctx, group.messages);
+            }
           }
         } catch (e) {
           logger.error(e, 'Error creating upload session for album');
@@ -218,15 +315,24 @@ bot.on(['message:photo', 'message:video', 'message:document'], async (ctx, next)
     } else {
       ctx.session.mediaGroup.messages.push(ctx.message);
     }
+  } else if (ctx.session.uploadMode === 'bot') {
+    ctx.session.mediaGroup = { id: `single-${ctx.message.message_id}`, messages: [ctx.message] };
+    await ctx.conversation.enter('uploadWizard');
   } else {
     ctx.session.mediaGroup = undefined;
     await openUploadMiniApp(ctx, [ctx.message]);
   }
 });
 
+bot.callbackQuery('upload:bot', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  ctx.session.uploadMode = 'bot';
+  await ctx.reply('Режим заливки через бот увімкнено. Надішли файли.');
+});
+
 bot.on('message', (ctx) => {
   if (!ctx.message.text?.startsWith('/')) {
-    ctx.reply('I only understand commands and media uploads. Send a photo/video or use /search.');
+    ctx.reply('Я розумію команди та медіа. Скористайся /help або меню зліва.');
   }
 });
 
