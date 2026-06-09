@@ -3,6 +3,9 @@ import { conversations, createConversation } from '@grammyjs/conversations';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { MyContext, uploadWizard, searchWizard } from './conversations.js';
+import { getUserByTelegramId } from '../services/user.js';
+import { createTelegramUploadSession, TelegramUploadSessionFile } from '../services/telegram-upload-session.js';
+import { query } from '../db/pool.js';
 
 export const bot = new Bot<MyContext>(config.telegram.botToken);
 
@@ -50,6 +53,134 @@ bot.command('admin', async (ctx) => {
   await ctx.reply('Адмін-дашборд', { reply_markup: keyboard });
 });
 
+bot.callbackQuery(/^lc:([^:]+):(actual|fading|not_running)$/, async (ctx) => {
+  const [, creativeId, lifecycleStatus] = ctx.match;
+  const mappedStatus = lifecycleStatus === 'actual'
+    ? 'working'
+    : lifecycleStatus === 'fading'
+      ? 'fading'
+      : 'dead';
+  const user = ctx.from ? await getUserByTelegramId(ctx.from.id) : null;
+
+  if (!user || !user.is_active) {
+    await ctx.answerCallbackQuery({ text: 'Немає доступу', show_alert: true });
+    return;
+  }
+
+  const creativeResult = await query(
+    `UPDATE creatives
+     SET author_lifecycle_status = $1,
+         author_lifecycle_updated_at = NOW(),
+         aggregated_status = $2,
+         updated_at = NOW()
+     WHERE id = $3 AND author_id = $4
+     RETURNING id, short_id, author_lifecycle_status, aggregated_status`,
+    [lifecycleStatus, mappedStatus, creativeId, user.id]
+  );
+
+  if (creativeResult.rows.length === 0) {
+    await ctx.answerCallbackQuery({ text: 'Крео не знайдено або це не твій файл', show_alert: true });
+    return;
+  }
+
+  await query(
+    `INSERT INTO audit_log (user_id, action, target_type, target_id, metadata)
+     VALUES ($1, 'author_lifecycle_update', 'creative', $2, $3)`,
+    [
+      user.id,
+      creativeId,
+      JSON.stringify({
+        source: 'telegram_button',
+        author_lifecycle_status: lifecycleStatus,
+        aggregated_status: mappedStatus,
+      }),
+    ]
+  );
+
+  const label = lifecycleStatus === 'actual'
+    ? 'актуальний'
+    : lifecycleStatus === 'fading'
+      ? 'вигорає'
+      : 'вже не лию';
+
+  await ctx.answerCallbackQuery({ text: `Оновлено: ${label}` });
+  await ctx.editMessageText(`Статус ${creativeResult.rows[0].short_id} оновлено: ${label}`);
+});
+
+const mediaToSessionFile = (message: any): TelegramUploadSessionFile | null => {
+  if (message.photo?.length) {
+    const photo = message.photo[message.photo.length - 1];
+    return {
+      fileId: photo.file_id,
+      fileName: `photo-${message.message_id}.jpg`,
+      fileType: 'image',
+      mimeType: 'image/jpeg',
+      size: photo.file_size,
+    };
+  }
+
+  if (message.video) {
+    return {
+      fileId: message.video.file_id,
+      fileName: message.video.file_name || `video-${message.message_id}.mp4`,
+      fileType: 'video',
+      mimeType: message.video.mime_type,
+      size: message.video.file_size,
+    };
+  }
+
+  if (message.document) {
+    const mimeType = message.document.mime_type || 'application/octet-stream';
+    return {
+      fileId: message.document.file_id,
+      fileName: message.document.file_name || `document-${message.message_id}`,
+      fileType: mimeType.startsWith('video/') ? 'video' : 'document',
+      mimeType,
+      size: message.document.file_size,
+    };
+  }
+
+  return null;
+};
+
+const openUploadMiniApp = async (ctx: MyContext, messages: any[]) => {
+  const user = ctx.from ? await getUserByTelegramId(ctx.from.id) : null;
+
+  if (!user || !user.is_active) {
+    await ctx.reply('Access denied. Please contact the administrator.');
+    return;
+  }
+
+  if (!config.miniAppUrl.startsWith('https://')) {
+    await ctx.reply('Mini App upload недоступний: MINI_APP_URL має бути HTTPS.');
+    return;
+  }
+
+  const files = messages.map(mediaToSessionFile).filter(Boolean) as TelegramUploadSessionFile[];
+
+  if (files.length === 0) {
+    await ctx.reply('Не бачу підтримуваних файлів для заливки.');
+    return;
+  }
+
+  const session = await createTelegramUploadSession(ctx.from!.id, files);
+  const uploadUrl = new URL(config.miniAppUrl);
+  uploadUrl.searchParams.set('screen', 'upload');
+  uploadUrl.searchParams.set('uploadSession', session.id);
+
+  const keyboard = new InlineKeyboard().webApp(
+    files.length > 1 ? `Відкрити батч (${files.length})` : 'Відкрити заливку',
+    uploadUrl.toString()
+  );
+
+  await ctx.reply(
+    files.length > 1
+      ? `Отримав ${files.length} файлів. Відкрий Mini App, щоб виставити спільні metadata та overrides.`
+      : 'Файл готовий до заливки через Mini App.',
+    { reply_markup: keyboard }
+  );
+};
+
 bot.on(['message:photo', 'message:video', 'message:document'], async (ctx, next) => {
   const mediaGroupId = ctx.message.media_group_id;
 
@@ -59,9 +190,13 @@ bot.on(['message:photo', 'message:video', 'message:document'], async (ctx, next)
       
       setTimeout(async () => {
         try {
-          await ctx.conversation.enter('uploadWizard');
+          const group = ctx.session.mediaGroup;
+          if (group?.id === mediaGroupId) {
+            ctx.session.mediaGroup = undefined;
+            await openUploadMiniApp(ctx, group.messages);
+          }
         } catch (e) {
-          logger.error(e, 'Error starting upload wizard for album');
+          logger.error(e, 'Error creating upload session for album');
         }
       }, 1500);
     } else {
@@ -69,7 +204,7 @@ bot.on(['message:photo', 'message:video', 'message:document'], async (ctx, next)
     }
   } else {
     ctx.session.mediaGroup = undefined;
-    await ctx.conversation.enter('uploadWizard');
+    await openUploadMiniApp(ctx, [ctx.message]);
   }
 });
 

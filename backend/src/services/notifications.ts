@@ -396,7 +396,7 @@ export const processAuthorLifecycleReminders = async () => {
            AND n.type = 'reminder'
            AND n.payload->>'creativeId' = c.id::TEXT
            AND n.payload->>'reason' = 'author_lifecycle_due'
-           AND n.created_at >= c.author_lifecycle_updated_at
+           AND n.created_at >= NOW() - $1 * INTERVAL '1 day'
        )
      ORDER BY c.author_lifecycle_updated_at ASC
      LIMIT 100`,
@@ -409,6 +409,7 @@ export const processAuthorLifecycleReminders = async () => {
       shortId: creative.short_id,
       reason: 'author_lifecycle_due',
       lifecycleStatus: creative.author_lifecycle_status,
+      reminderDays,
       text: `Онови статус ${creative.short_id}: актуальний, вигорає чи не лию`,
     });
   }
@@ -452,9 +453,25 @@ const sendNotification = async (job: NotificationJob) => {
       : notification.type === 'burnout'
         ? String(notification.payload.text || `Creative ${notification.payload.shortId || notification.payload.creativeId} is burning out`)
       : String(notification.payload.text || 'Reminder');
+  const lifecycleKeyboard = notification.type === 'reminder'
+    && notification.payload?.reason === 'author_lifecycle_due'
+    && notification.payload?.creativeId
+    ? {
+        inline_keyboard: [
+          [
+            { text: 'актуальний', callback_data: `lc:${notification.payload.creativeId}:actual` },
+            { text: 'вигорає', callback_data: `lc:${notification.payload.creativeId}:fading` },
+          ],
+          [
+            { text: 'вже не лию', callback_data: `lc:${notification.payload.creativeId}:not_running` },
+          ],
+        ],
+      }
+    : undefined;
 
   await bot.api.sendMessage(notification.telegram_id, text, {
     protect_content: true,
+    reply_markup: lifecycleKeyboard,
   });
 };
 

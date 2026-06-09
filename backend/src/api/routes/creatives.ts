@@ -9,6 +9,11 @@ import { isValidFileSize, isValidGeoCode, sanitizeString } from '../../utils/val
 import { query } from '../../db/pool.js';
 import { config } from '../../config.js';
 import { getSignedUrl } from '../../services/storage.js';
+import {
+  deleteTelegramUploadSession,
+  downloadTelegramUploadFile,
+  getTelegramUploadSession,
+} from '../../services/telegram-upload-session.js';
 
 export const creativeRouter = Router();
 const upload = multer({
@@ -314,7 +319,20 @@ creativeRouter.post(
   upload.array('files', 50),
   async (req: Request, res: Response) => {
     try {
-      const files = Array.isArray(req.files) ? req.files as Express.Multer.File[] : [];
+      let files = Array.isArray(req.files) ? req.files as Express.Multer.File[] : [];
+      const telegramUploadSessionId = req.body.telegramUploadSessionId
+        ? sanitizeString(String(req.body.telegramUploadSessionId), 80)
+        : '';
+
+      if (files.length === 0 && telegramUploadSessionId) {
+        const session = await getTelegramUploadSession(telegramUploadSessionId);
+
+        if (!session || session.telegramId !== req.user.telegram_id) {
+          return res.status(404).json({ error: 'Upload session not found' });
+        }
+
+        files = await Promise.all(session.files.map(downloadTelegramUploadFile));
+      }
 
       if (files.length === 0) {
         return res.status(400).json({ error: 'At least one creative file is required' });
@@ -362,6 +380,10 @@ creativeRouter.post(
       }
 
       const failed = results.filter((result) => !result.success).length;
+
+      if (telegramUploadSessionId && failed === 0) {
+        await deleteTelegramUploadSession(telegramUploadSessionId);
+      }
 
       res.status(failed ? 207 : 201).json({
         data: results,

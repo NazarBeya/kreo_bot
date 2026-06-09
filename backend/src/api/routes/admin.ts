@@ -65,21 +65,69 @@ const exportCreativesRows = async () => {
   return result.rows;
 };
 
+const buyerActivityRows = async () => {
+  const result = await query(
+    `SELECT u.id,
+            COALESCE(u.username, u.display_name, u.telegram_id::TEXT) AS buyer,
+            COUNT(DISTINCT c.id)::INT AS uploads,
+            COUNT(DISTINCT cs.id)::INT AS tests,
+            COUNT(DISTINCT cm.id)::INT AS comments,
+            COUNT(DISTINCT d.id)::INT AS downloads,
+            COUNT(DISTINCT c.id) FILTER (WHERE c.created_at >= NOW() - INTERVAL '7 days')::INT AS uploads_week,
+            COUNT(DISTINCT cs.id) FILTER (WHERE cs.updated_at >= NOW() - INTERVAL '7 days')::INT AS tests_week,
+            COUNT(DISTINCT cm.id) FILTER (WHERE cm.created_at >= NOW() - INTERVAL '7 days')::INT AS comments_week
+     FROM users u
+     LEFT JOIN creatives c ON c.author_id = u.id
+     LEFT JOIN creative_statuses cs ON cs.buyer_id = u.id
+     LEFT JOIN comments cm ON cm.author_id = u.id
+     LEFT JOIN downloads d ON d.user_id = u.id
+     WHERE u.role IN ('buyer', 'lead', 'admin')
+     GROUP BY u.id
+     ORDER BY (COUNT(DISTINCT c.id) + COUNT(DISTINCT cs.id) + COUNT(DISTINCT cm.id) + COUNT(DISTINCT d.id)) DESC`
+  );
+
+  return result.rows;
+};
+
 const buyerTrackRecordRows = async () => {
   const result = await query(
     `SELECT u.id,
             u.username,
             u.display_name,
+            COUNT(DISTINCT c.id)::INT AS uploads,
+            COUNT(DISTINCT cm.id)::INT AS comments,
             COUNT(DISTINCT d.id)::INT AS downloads,
             COUNT(DISTINCT cs.id)::INT AS statuses,
             COUNT(DISTINCT cs.creative_id)::INT AS creatives_tested,
             COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'green')::INT AS green,
             COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'yellow')::INT AS yellow,
             COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'red')::INT AS red,
+            COUNT(DISTINCT cs.id) FILTER (
+              WHERE cs.status = 'working'
+                AND EXISTS (
+                  SELECT 1
+                  FROM creative_statuses other_cs
+                  WHERE other_cs.creative_id = cs.creative_id
+                    AND other_cs.buyer_id <> cs.buyer_id
+                    AND other_cs.status = 'working'
+                )
+            )::INT AS working_confirmed_by_others,
             COALESCE(ROUND(
               100.0 * COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'green')
               / NULLIF(COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category IS NOT NULL), 0)
             ), 0)::INT AS green_rate,
+            COALESCE(ROUND(
+              100.0 * COUNT(DISTINCT cs.id) FILTER (
+                WHERE cs.status = 'working'
+                  AND EXISTS (
+                    SELECT 1
+                    FROM creative_statuses other_cs
+                    WHERE other_cs.creative_id = cs.creative_id
+                      AND other_cs.buyer_id <> cs.buyer_id
+                      AND other_cs.status = 'working'
+                  )
+              ) / NULLIF(COUNT(DISTINCT cs.id) FILTER (WHERE cs.status = 'working'), 0)
+            ), 0)::INT AS prediction_accuracy,
             COUNT(DISTINCT d.creative_id) FILTER (
               WHERE d.created_at <= NOW() - INTERVAL '14 days'
                 AND NOT EXISTS (
@@ -90,14 +138,35 @@ const buyerTrackRecordRows = async () => {
                     AND cs2.updated_at >= d.created_at
                 )
             )::INT AS overdue_downloads,
+            (COUNT(DISTINCT c.id) + COUNT(DISTINCT cs.id) + COUNT(DISTINCT cm.id) + COUNT(DISTINCT d.id))::INT AS total_activity,
             MAX(cs.updated_at) AS last_status_at,
             MAX(d.created_at) AS last_download_at
      FROM users u
+     LEFT JOIN creatives c ON c.author_id = u.id
+     LEFT JOIN comments cm ON cm.author_id = u.id
      LEFT JOIN downloads d ON d.user_id = u.id
      LEFT JOIN creative_statuses cs ON cs.buyer_id = u.id
      WHERE u.role IN ('buyer', 'lead')
      GROUP BY u.id
-     ORDER BY green_rate DESC, statuses DESC, downloads DESC`
+     ORDER BY prediction_accuracy DESC, working_confirmed_by_others DESC, total_activity DESC`
+  );
+
+  return result.rows;
+};
+
+const downloadLogRows = async () => {
+  const result = await query(
+    `SELECT d.created_at,
+            u.telegram_id,
+            u.username,
+            u.display_name,
+            c.short_id AS creative_id,
+            d.ip,
+            d.user_agent
+     FROM downloads d
+     JOIN users u ON u.id = d.user_id
+     JOIN creatives c ON c.id = d.creative_id
+     ORDER BY d.created_at DESC`
   );
 
   return result.rows;
@@ -126,6 +195,14 @@ const exportDatasetRows = async (dataset: string) => {
     return buyerTrackRecordRows();
   }
 
+  if (dataset === 'downloads') {
+    return downloadLogRows();
+  }
+
+  if (dataset === 'activity') {
+    return buyerActivityRows();
+  }
+
   if (dataset === 'moderation') {
     return moderationExportRows();
   }
@@ -140,10 +217,15 @@ adminRouter.get('/dashboard', requireAdmin, async (req: Request, res: Response) 
         `SELECT
            COUNT(*)::INT AS creatives,
            COUNT(*) FILTER (WHERE c.created_at >= NOW() - INTERVAL '7 days')::INT AS creatives_week,
+           COUNT(*) FILTER (WHERE c.created_at >= NOW() - INTERVAL '30 days')::INT AS creatives_month,
+           COUNT(*) FILTER (WHERE c.is_archived = true)::INT AS archived_creatives,
+           COUNT(*) FILTER (WHERE c.is_archived = true AND c.aggregated_status = 'dead')::INT AS dead_archive,
            COUNT(*) FILTER (WHERE c.moderation_status = 'pending_review')::INT AS pending_moderation,
            (SELECT COUNT(*)::INT FROM users WHERE is_active = true) AS active_users,
            (SELECT COUNT(*)::INT FROM downloads WHERE created_at >= NOW() - INTERVAL '7 days') AS downloads_week,
-           (SELECT COUNT(*)::INT FROM comments WHERE created_at >= NOW() - INTERVAL '7 days') AS comments_week
+           (SELECT COUNT(*)::INT FROM downloads WHERE created_at >= NOW() - INTERVAL '30 days') AS downloads_month,
+           (SELECT COUNT(*)::INT FROM comments WHERE created_at >= NOW() - INTERVAL '7 days') AS comments_week,
+           (SELECT COUNT(*)::INT FROM creative_statuses WHERE updated_at >= NOW() - INTERVAL '7 days') AS tests_week
          FROM creatives c`
       ),
       query(
@@ -206,20 +288,35 @@ adminRouter.get('/dashboard', requireAdmin, async (req: Request, res: Response) 
 
 adminRouter.get('/analytics', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const [geoRows, lifecycleRows, reviewerRows, notificationRows, roiRows, moderationSlaRows] = await Promise.all([
+    const [
+      geoRows,
+      lifecycleRows,
+      reviewerRows,
+      notificationRows,
+      roiRows,
+      moderationSlaRows,
+      buyerActivityRowsData,
+      monthDynamics,
+      archiveRows,
+    ] = await Promise.all([
       query(
         `SELECT cg.geo_code AS label,
                 COUNT(DISTINCT c.id)::INT AS creatives,
                 COUNT(DISTINCT d.id)::INT AS downloads,
                 COUNT(DISTINCT cs.id)::INT AS statuses,
                 COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'green')::INT AS green,
-                COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'red')::INT AS red
+                COUNT(DISTINCT cs.id) FILTER (WHERE cs.roi_category = 'red')::INT AS red,
+                (
+                  COUNT(DISTINCT cs.id) FILTER (WHERE cs.status = 'working') * 3
+                  + COUNT(DISTINCT d.id)
+                  + COUNT(DISTINCT c.id) FILTER (WHERE c.created_at >= NOW() - INTERVAL '7 days') * 2
+                )::INT AS hot_score
          FROM creative_geos cg
          JOIN creatives c ON c.id = cg.creative_id
          LEFT JOIN downloads d ON d.creative_id = c.id
          LEFT JOIN creative_statuses cs ON cs.creative_id = c.id
          GROUP BY cg.geo_code
-         ORDER BY creatives DESC
+         ORDER BY hot_score DESC, creatives DESC
          LIMIT 12`
       ),
       query(
@@ -262,8 +359,45 @@ adminRouter.get('/analytics', requireAdmin, async (req: Request, res: Response) 
          WHERE moderation_status = 'pending_review'
             OR moderated_at IS NOT NULL`
       ),
+      buyerActivityRows(),
+      query(
+        `SELECT to_char(day, 'YYYY-MM-DD') AS label,
+                COALESCE(upload_count, 0)::INT AS uploads,
+                COALESCE(test_count, 0)::INT AS tests,
+                COALESCE(comment_count, 0)::INT AS comments,
+                COALESCE(download_count, 0)::INT AS downloads
+         FROM generate_series(CURRENT_DATE - INTERVAL '29 days', CURRENT_DATE, INTERVAL '1 day') day
+         LEFT JOIN (
+           SELECT DATE(created_at) AS created_day, COUNT(*) AS upload_count
+           FROM creatives
+           GROUP BY DATE(created_at)
+         ) uploads ON uploads.created_day = day::date
+         LEFT JOIN (
+           SELECT DATE(updated_at) AS test_day, COUNT(*) AS test_count
+           FROM creative_statuses
+           GROUP BY DATE(updated_at)
+         ) tests ON tests.test_day = day::date
+         LEFT JOIN (
+           SELECT DATE(created_at) AS comment_day, COUNT(*) AS comment_count
+           FROM comments
+           GROUP BY DATE(created_at)
+         ) comments ON comments.comment_day = day::date
+         LEFT JOIN (
+           SELECT DATE(created_at) AS download_day, COUNT(*) AS download_count
+           FROM downloads
+           GROUP BY DATE(created_at)
+         ) downloads ON downloads.download_day = day::date
+         ORDER BY day`
+      ),
+      query(
+        `SELECT aggregated_status AS label,
+                COUNT(*)::INT AS value,
+                COUNT(*) FILTER (WHERE is_archived = true)::INT AS archived
+         FROM creatives
+         GROUP BY aggregated_status
+         ORDER BY value DESC`
+      ),
     ]);
-
     res.json({
       data: {
         geos: geoRows.rows,
@@ -272,6 +406,9 @@ adminRouter.get('/analytics', requireAdmin, async (req: Request, res: Response) 
         notifications: notificationRows.rows,
         roi: roiRows.rows,
         moderationSla: moderationSlaRows.rows[0],
+        buyerActivity: buyerActivityRowsData,
+        monthDynamics: monthDynamics.rows,
+        archive: archiveRows.rows,
       },
     });
   } catch (error) {

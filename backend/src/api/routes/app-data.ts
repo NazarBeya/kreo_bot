@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/auth.js';
 import { query } from '../../db/pool.js';
 import { sanitizeString } from '../../utils/validation.js';
 import { logger } from '../../logger.js';
+import { getTelegramUploadSession } from '../../services/telegram-upload-session.js';
 
 export const appDataRouter = Router();
 
@@ -43,6 +44,34 @@ const presetFields = `
 `;
 
 const subscriptionFields = 'id, geo_code, angle, created_at';
+
+appDataRouter.get('/upload-sessions/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const session = await getTelegramUploadSession(req.params.id);
+
+    if (!session || session.telegramId !== req.user.telegram_id) {
+      return res.status(404).json({ error: 'Upload session not found' });
+    }
+
+    res.json({
+      data: {
+        id: session.id,
+        createdAt: session.createdAt,
+        files: session.files.map((file, index) => ({
+          id: `${session.id}-${index}`,
+          index,
+          fileName: file.fileName,
+          fileType: file.fileType,
+          mimeType: file.mimeType,
+          size: file.size || 0,
+        })),
+      },
+    });
+  } catch (error) {
+    logger.error(error, 'Error fetching upload session');
+    res.status(500).json({ error: 'Failed to fetch upload session' });
+  }
+});
 
 const sanitizeSubscriptionInput = (body: Record<string, any>) => ({
   geoCode: body.geoCode ? sanitizeString(String(body.geoCode), 2).toUpperCase() : null,

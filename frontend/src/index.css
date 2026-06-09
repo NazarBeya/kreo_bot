@@ -394,8 +394,8 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   background: transparent;
 }
 .admin-list button.active { color: #111; background: #ffd000; border-color: #ffd000; }
-.buyer-record-list, .geo-performance-list, .reviewer-list { display: grid; gap: 10px; }
-.buyer-record-list article, .geo-performance-list article, .reviewer-list article {
+.buyer-record-list, .geo-performance-list, .reviewer-list, .buyer-activity-list, .month-dynamics { display: grid; gap: 10px; }
+.buyer-record-list article, .geo-performance-list article, .reviewer-list article, .buyer-activity-list article, .month-dynamics article {
   display: grid;
   align-items: center;
   gap: 10px;
@@ -404,13 +404,23 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 8px;
 }
-.buyer-record-list article { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+.buyer-record-list article { grid-template-columns: minmax(0, 1fr) auto auto auto auto; }
 .geo-performance-list article { grid-template-columns: 64px repeat(4, minmax(0, 1fr)); }
 .reviewer-list article { grid-template-columns: minmax(0, 1fr) auto auto; }
-.buyer-record-list strong, .geo-performance-list strong { color: #f2f1ee; }
-.buyer-record-list small, .reviewer-list small { display: block; margin-top: 4px; color: #777; }
-.buyer-record-list span, .geo-performance-list span, .reviewer-list span { color: #aaa; }
-.buyer-record-list b, .reviewer-list strong { color: #ffd000; }
+.buyer-activity-list article { grid-template-columns: minmax(0, 1fr) repeat(3, auto) auto; }
+.month-dynamics {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.month-dynamics article {
+  min-height: 68px;
+  justify-items: center;
+  gap: 4px;
+}
+.buyer-record-list strong, .geo-performance-list strong, .buyer-activity-list strong { color: #f2f1ee; }
+.buyer-record-list small, .reviewer-list small, .buyer-activity-list small { display: block; margin-top: 4px; color: #777; }
+.buyer-record-list span, .geo-performance-list span, .reviewer-list span, .buyer-activity-list span, .month-dynamics span { color: #aaa; }
+.buyer-record-list b, .reviewer-list strong, .month-dynamics b { color: #ffd000; }
+.month-dynamics i { color: #54e698; font-style: normal; }
 .buyer-record-list b.warn { color: #ff8f66; }
 .admin-inline-form { display: grid; grid-template-columns: 1fr 52px; gap: 10px; margin-bottom: 12px; }
 .admin-inline-form input, .admin-settings input {
@@ -1224,9 +1234,10 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   .admin-bars div { height: 170px; }
   .admin-bars span { font-size: 8px; }
   .admin-list article, .moderation-list article { gap: 8px; padding: 10px; }
-  .buyer-record-list article { grid-template-columns: 1fr; align-items: start; }
+  .buyer-record-list article, .buyer-activity-list article { grid-template-columns: 1fr; align-items: start; }
   .geo-performance-list article { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reviewer-list article { grid-template-columns: 1fr auto; }
+  .month-dynamics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-settings label { grid-template-columns: 1fr 74px; }
   .moderation-panel { margin: 0 4.4%; }
   .moderation-heading { align-items: flex-start; flex-direction: column; }

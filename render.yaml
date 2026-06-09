@@ -1,0 +1,79 @@
+databases:
+  - name: creative-bot-db
+    databaseName: creative_bot
+    user: creative_user
+    plan: free
+
+services:
+  - type: keyvalue
+    name: creative-bot-redis
+    plan: free
+    ipAllowList: []
+
+  - type: web
+    name: creative-bot-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile.prod
+    healthCheckPath: /health
+    preDeployCommand: npm run db:migrate
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: creative-bot-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: creative-bot-redis
+          property: connectionString
+      - key: API_URL
+        sync: false
+      - key: MINI_APP_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: LOG_LEVEL
+        value: info
+      - key: SENTRY_DSN
+        sync: false
+      - key: SIGNED_PREVIEW_URL_TTL_SECONDS
+        value: "900"
+      - key: SIGNED_DOWNLOAD_URL_TTL_SECONDS
+        value: "900"
+      - key: DOWNLOAD_LOG_RETENTION_DAYS
+        value: "365"
+
+  - type: web
+    name: creative-bot-frontend
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_BOT_USERNAME
+        sync: false

@@ -102,26 +102,44 @@ interface AdminDashboardData {
 }
 
 interface AdminAnalyticsData {
-    geos: Array<{ label: string; creatives: number; downloads: number; statuses: number; green: number; red: number }>;
+    geos: Array<{ label: string; creatives: number; downloads: number; statuses: number; green: number; red: number; hot_score: number }>;
     lifecycle: Array<{ label: string; value: number }>;
     reviewers: Array<{ label: string; reviewed: number; approved: number; rejected: number }>;
     notifications: Array<{ label: string; value: number; unread: number }>;
     roi: Array<{ label: string; value: number }>;
     moderationSla?: { pending: number; avg_hours: number };
+    buyerActivity: Array<{
+        id: string;
+        buyer: string;
+        uploads: number;
+        tests: number;
+        comments: number;
+        downloads: number;
+        uploads_week: number;
+        tests_week: number;
+        comments_week: number;
+    }>;
+    monthDynamics: Array<{ label: string; uploads: number; tests: number; comments: number; downloads: number }>;
+    archive: Array<{ label: string; value: number; archived: number }>;
 }
 
 interface BuyerTrackRecord {
     id: string;
     username?: string;
     display_name?: string;
+    uploads: number;
+    comments: number;
     downloads: number;
     statuses: number;
     creatives_tested: number;
     green: number;
     yellow: number;
     red: number;
+    working_confirmed_by_others: number;
     green_rate: number;
+    prediction_accuracy: number;
     overdue_downloads: number;
+    total_activity: number;
     last_status_at?: string;
     last_download_at?: string;
 }
@@ -188,6 +206,9 @@ interface ProfileData {
 
 interface TelegramWebApp {
     initData: string;
+    initDataUnsafe?: {
+        start_param?: string;
+    };
     expand: () => void;
     ready: () => void;
 }
@@ -334,7 +355,9 @@ type AppScreen = 'catalog' | 'feed' | 'upload' | 'bookmarks' | 'profile';
 
 interface UploadFileCard {
     id: string;
-    file: File;
+    file?: File;
+    source: 'local' | 'telegram';
+    sessionIndex?: number;
     name: string;
     size: string;
     tone: string;
@@ -872,7 +895,11 @@ const DetailField: React.FC<React.PropsWithChildren<{ label: string }>> = ({ lab
     </div>
 );
 
-const UploadScreen: React.FC<{ presets: UploadPreset[]; onUploaded: () => Promise<void> }> = ({ presets, onUploaded }) => {
+const UploadScreen: React.FC<{
+    presets: UploadPreset[];
+    telegramUploadSessionId?: string | null;
+    onUploaded: () => Promise<void>;
+}> = ({ presets, telegramUploadSessionId, onUploaded }) => {
     const availablePresets = presets.length ? presets : fallbackUploadPresets;
     const [files, setFiles] = useState<UploadFileCard[]>([]);
     const [selectedGeos, setSelectedGeos] = useState(['DE', 'IL']);
@@ -886,6 +913,7 @@ const UploadScreen: React.FC<{ presets: UploadPreset[]; onUploaded: () => Promis
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+    const [loadedTelegramSessionId, setLoadedTelegramSessionId] = useState<string | null>(null);
 
     const toggleValue = (value: string, current: string[], setCurrent: (values: string[]) => void) => {
         setCurrent(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
@@ -936,6 +964,7 @@ const UploadScreen: React.FC<{ presets: UploadPreset[]; onUploaded: () => Promis
                 return {
                     id: `${file.name}-${file.lastModified}-${file.size}`,
                     file,
+                    source: 'local' as const,
                     name: file.name,
                     size: formatFileSize(file.size),
                     tone: ['berry', 'ocean', 'amber', 'mint'][index % 4],
@@ -954,6 +983,67 @@ const UploadScreen: React.FC<{ presets: UploadPreset[]; onUploaded: () => Promis
         });
         setUploadMessage(null);
     };
+
+    useEffect(() => {
+        if (!telegramUploadSessionId || loadedTelegramSessionId === telegramUploadSessionId) {
+            return;
+        }
+
+        const loadTelegramSession = async () => {
+            try {
+                const response = await apiClient.get(`/api/app/upload-sessions/${telegramUploadSessionId}`);
+                const sessionFiles = response.data.data.files as Array<{
+                    id: string;
+                    index: number;
+                    fileName: string;
+                    size: number;
+                }>;
+
+                setFiles(sessionFiles.map((sessionFile, index) => {
+                    const detected = detectMetadataFromFileName(sessionFile.fileName);
+                    const hasDetectedMetadata = Boolean(
+                        detected.geos?.length
+                        || detected.angles?.length
+                        || detected.preland
+                        || detected.parentShortId
+                        || detected.versionLabel
+                    );
+
+                    return {
+                        id: sessionFile.id,
+                        source: 'telegram' as const,
+                        sessionIndex: sessionFile.index,
+                        name: sessionFile.fileName,
+                        size: formatFileSize(sessionFile.size || 0),
+                        tone: ['berry', 'ocean', 'amber', 'mint'][index % 4],
+                        override: hasDetectedMetadata,
+                        geos: detected.geos || selectedGeos,
+                        angles: detected.angles || selectedAngles,
+                        preland: detected.preland || preland,
+                        authorComment,
+                        parentShortId: detected.parentShortId || parentShortId,
+                        versionLabel: detected.versionLabel || versionLabel,
+                        uploadStatus: 'idle' as const,
+                    };
+                }));
+                setLoadedTelegramSessionId(telegramUploadSessionId);
+                setUploadMessage(`батч із бота підключено: ${sessionFiles.length} файлів`);
+            } catch (requestError: any) {
+                setUploadMessage(requestError.response?.data?.error || 'Не вдалося підключити батч із бота');
+            }
+        };
+
+        void loadTelegramSession();
+    }, [
+        authorComment,
+        loadedTelegramSessionId,
+        parentShortId,
+        preland,
+        selectedAngles,
+        selectedGeos,
+        telegramUploadSessionId,
+        versionLabel,
+    ]);
 
     const applyMetadata = (metadata: UploadMetadata) => {
         setSelectedGeos(metadata.geos || []);
@@ -1007,7 +1097,14 @@ const UploadScreen: React.FC<{ presets: UploadPreset[]; onUploaded: () => Promis
 
         try {
             const formData = new FormData();
-            files.forEach((file) => formData.append('files', file.file, file.name));
+            files.forEach((file) => {
+                if (file.file) {
+                    formData.append('files', file.file, file.name);
+                }
+            });
+            if (telegramUploadSessionId) {
+                formData.append('telegramUploadSessionId', telegramUploadSessionId);
+            }
             formData.append('geos', JSON.stringify(selectedGeos));
             formData.append('angles', JSON.stringify(selectedAngles));
             formData.append('preland', preland);
@@ -1436,6 +1533,8 @@ const AdminScreen: React.FC<{
                         <select value={exportDataset} onChange={(event) => setExportDataset(event.target.value)}>
                             <option value="creatives">creatives</option>
                             <option value="buyers">buyers</option>
+                            <option value="downloads">downloads</option>
+                            <option value="activity">activity</option>
                             <option value="moderation">moderation</option>
                         </select>
                         <button onClick={() => void downloadExport('csv')}>CSV</button>
@@ -1475,6 +1574,17 @@ const AdminScreen: React.FC<{
 
                     <AdminPanel title="lifecycle">
                         <AdminList rows={analytics?.lifecycle || []} />
+                    </AdminPanel>
+
+                    <AdminPanel title="архів">
+                        <div className="admin-list">
+                            {(analytics?.archive || []).map((row) => (
+                                <article key={row.label}>
+                                    <span>{row.label}</span>
+                                    <strong>{row.archived}/{row.value}</strong>
+                                </article>
+                            ))}
+                        </div>
                     </AdminPanel>
 
                     <AdminPanel title="angles">
@@ -1534,9 +1644,10 @@ const AdminScreen: React.FC<{
                                 <article key={buyer.id}>
                                     <div>
                                         <strong>@{buyer.username || buyer.display_name || 'buyer'}</strong>
-                                        <small>{buyer.creatives_tested} крео · {buyer.statuses} статусів · {buyer.downloads} скачувань</small>
+                                        <small>{buyer.uploads} залив · {buyer.creatives_tested} тестів · {buyer.comments} коментів · {buyer.downloads} скачувань</small>
                                     </div>
-                                    <span>{buyer.green_rate}% green</span>
+                                    <span>{buyer.prediction_accuracy}% accuracy</span>
+                                    <span>{buyer.working_confirmed_by_others} підтвердж.</span>
                                     <span>{buyer.green}/{buyer.yellow}/{buyer.red}</span>
                                     <b className={buyer.overdue_downloads > 0 ? 'warn' : ''}>{buyer.overdue_downloads} overdue</b>
                                 </article>
@@ -1552,7 +1663,33 @@ const AdminScreen: React.FC<{
                                     <span>{geo.creatives} крео</span>
                                     <span>{geo.downloads} dl</span>
                                     <span>{geo.green} green</span>
-                                    <span>{geo.red} red</span>
+                                    <span>{geo.hot_score} hot</span>
+                                </article>
+                            ))}
+                        </div>
+                    </AdminPanel>
+
+                    <AdminPanel title="активність баєрів">
+                        <div className="buyer-activity-list">
+                            {(analytics?.buyerActivity || []).slice(0, 10).map((row) => (
+                                <article key={row.id}>
+                                    <strong>@{row.buyer}</strong>
+                                    <span>{row.uploads} залив</span>
+                                    <span>{row.tests} тестів</span>
+                                    <span>{row.comments} ком.</span>
+                                    <small>7д: {row.uploads_week}/{row.tests_week}/{row.comments_week}</small>
+                                </article>
+                            ))}
+                        </div>
+                    </AdminPanel>
+
+                    <AdminPanel title="30 днів">
+                        <div className="month-dynamics">
+                            {(analytics?.monthDynamics || []).map((row) => (
+                                <article key={row.label}>
+                                    <span>{row.label.slice(5)}</span>
+                                    <b>{row.uploads}</b>
+                                    <i>{row.tests}</i>
                                 </article>
                             ))}
                         </div>
@@ -1638,6 +1775,8 @@ const AdminList: React.FC<{ rows: Array<{ label: string; value: number }> }> = (
 
 export const App: React.FC = () => {
     const isAdminPath = window.location.pathname.startsWith('/admin');
+    const initialParams = new URLSearchParams(window.location.search);
+    const initialUploadSessionId = initialParams.get('uploadSession');
     const [creatives, setCreatives] = useState<CreativeCard[]>([]);
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [bookmarkCreatives, setBookmarkCreatives] = useState<CreativeCard[]>([]);
@@ -1650,7 +1789,8 @@ export const App: React.FC = () => {
     const [sortMode, setSortMode] = useState<SortMode>('newest');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [archiveMode, setArchiveMode] = useState(false);
-    const [activeScreen, setActiveScreen] = useState<AppScreen>('catalog');
+    const [activeScreen, setActiveScreen] = useState<AppScreen>(initialParams.get('screen') === 'upload' ? 'upload' : 'catalog');
+    const [telegramUploadSessionId, setTelegramUploadSessionId] = useState<string | null>(initialUploadSessionId);
     const [selectedCreative, setSelectedCreative] = useState<CreativeCard | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -1717,6 +1857,11 @@ export const App: React.FC = () => {
             const webApp = window.Telegram?.WebApp;
             webApp?.expand();
             webApp?.ready();
+            const startParam = webApp?.initDataUnsafe?.start_param || '';
+            if (!telegramUploadSessionId && startParam.startsWith('uploadSession_')) {
+                setTelegramUploadSessionId(startParam.replace('uploadSession_', ''));
+                setActiveScreen('upload');
+            }
 
             if (!webApp?.initData) {
                 if (isLocalPreview && !isAdminPath) {
@@ -2016,7 +2161,11 @@ export const App: React.FC = () => {
         return (
             <main className="app-shell">
                 <div className="noise" />
-                <UploadScreen presets={profile?.presets || []} onUploaded={loadAppData} />
+                <UploadScreen
+                    presets={profile?.presets || []}
+                    telegramUploadSessionId={telegramUploadSessionId}
+                    onUploaded={loadAppData}
+                />
                 <BottomNav activeScreen={activeScreen} onNavigate={setActiveScreen} />
             </main>
         );
