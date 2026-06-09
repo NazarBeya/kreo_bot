@@ -28,19 +28,50 @@ const startServer = async () => {
     const hasRealBotToken =
       config.telegram.botToken && !config.telegram.botToken.startsWith('your_');
 
+    let botPollingActive = false;
+
+    const startBotPolling = async () => {
+      while (botPollingActive) {
+        try {
+          logger.info('🤖 Starting Telegram bot...');
+          await bot.start({
+            onStart: () => {
+              logger.info(`✅ Bot started as @${config.telegram.botUsername}`);
+            },
+          });
+        } catch (error: any) {
+          if (!botPollingActive) {
+            break;
+          }
+
+          const isPollingConflict =
+            error?.error_code === 409 ||
+            String(error?.message || '').includes('409');
+
+          if (isPollingConflict) {
+            logger.warn(
+              'Telegram polling conflict — another instance may be running. Retrying in 15s...'
+            );
+            await new Promise((resolve) => setTimeout(resolve, 15000));
+            continue;
+          }
+
+          logger.error(error, 'Telegram bot polling failed. Retrying in 30s...');
+          await new Promise((resolve) => setTimeout(resolve, 30000));
+        }
+      }
+    };
+
     if (hasRealBotToken) {
-      logger.info('🤖 Starting Telegram bot...');
-      await bot.start({
-        onStart: () => {
-          logger.info(`✅ Bot started as @${config.telegram.botUsername}`);
-        },
-      });
+      botPollingActive = true;
+      void startBotPolling();
     } else {
       logger.warn('Telegram bot polling skipped: TELEGRAM_BOT_TOKEN is not configured');
     }
 
-    process.on('SIGINT', async () => {
-      logger.info('Shutting down gracefully...');
+    const shutdown = async (signal: string) => {
+      logger.info({ signal }, 'Shutting down gracefully...');
+      botPollingActive = false;
       stopNotificationWorker();
       stopStatusWorker();
       if (hasRealBotToken) {
@@ -50,6 +81,13 @@ const startServer = async () => {
         logger.info('Server closed');
         process.exit(0);
       });
+    };
+
+    process.on('SIGINT', () => {
+      void shutdown('SIGINT');
+    });
+    process.on('SIGTERM', () => {
+      void shutdown('SIGTERM');
     });
   } catch (error) {
     logger.error(error, '❌ Failed to start server');
