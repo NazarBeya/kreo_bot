@@ -3,11 +3,22 @@ import { conversations, createConversation } from '@grammyjs/conversations';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { MyContext, uploadWizard, searchWizard } from './conversations.js';
-import { getUserByTelegramId } from '../services/user.js';
+import { findOrCreateUser, getUserByTelegramId } from '../services/user.js';
 import { createTelegramUploadSession, TelegramUploadSessionFile } from '../services/telegram-upload-session.js';
 import { query } from '../db/pool.js';
 
 export const bot = new Bot<MyContext>(config.telegram.botToken);
+
+export const setupBotMenu = async () => {
+  await bot.api.setMyCommands([
+    { command: 'start', description: 'Відкрити каталог' },
+    { command: 'search', description: 'Пошук креативів' },
+    { command: 'admin', description: 'Адмін-панель' },
+  ]);
+  await bot.api.setChatMenuButton({
+    menu_button: { type: 'commands' },
+  });
+};
 
 bot.use(session({
   initial: () => ({}),
@@ -144,9 +155,14 @@ const mediaToSessionFile = (message: any): TelegramUploadSessionFile | null => {
 };
 
 const openUploadMiniApp = async (ctx: MyContext, messages: any[]) => {
-  const user = ctx.from ? await getUserByTelegramId(ctx.from.id) : null;
+  if (!ctx.from) {
+    return;
+  }
 
-  if (!user || !user.is_active) {
+  const displayName = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ') || undefined;
+  const user = await findOrCreateUser(ctx.from.id, ctx.from.username, displayName);
+
+  if (!user.is_active) {
     await ctx.reply('Access denied. Please contact the administrator.');
     return;
   }

@@ -1,6 +1,6 @@
 import { createApp, installErrorHandlers } from './api/app.js';
 import apiRouter from './api/index.js';
-import { bot } from './bot/index.js';
+import { bot, setupBotMenu } from './bot/index.js';
 import { config } from './config.js';
 import { ensureOperationalSchema } from './db/schema.js';
 import { logger } from './logger.js';
@@ -34,6 +34,7 @@ const startServer = async () => {
       while (botPollingActive) {
         try {
           logger.info('🤖 Starting Telegram bot...');
+          await setupBotMenu();
           await bot.start({
             onStart: () => {
               logger.info(`✅ Bot started as @${config.telegram.botUsername}`);

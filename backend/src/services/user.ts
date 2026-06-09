@@ -15,27 +15,48 @@ export const getUserByTelegramId = async (telegramId: number): Promise<User | nu
   }
 };
 
-export const authenticateUser = async (
+export const findOrCreateUser = async (
   telegramId: number,
   username?: string,
   displayName?: string
-): Promise<User | null> => {
+): Promise<User> => {
   try {
-    const result = await query(
-      `UPDATE users 
-       SET username = COALESCE($2, users.username),
-           display_name = COALESCE($3, users.display_name),
-           last_active_at = NOW()
-       WHERE telegram_id = $1
-       RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at`,
-      [telegramId, username, displayName]
+    const existing = await getUserByTelegramId(telegramId);
+
+    if (existing) {
+      const result = await query(
+        `UPDATE users
+         SET username = COALESCE($2, users.username),
+             display_name = COALESCE($3, users.display_name),
+             last_active_at = NOW()
+         WHERE telegram_id = $1
+         RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at`,
+        [telegramId, username, displayName]
+      );
+      return result.rows[0];
+    }
+
+    const adminCount = await query(
+      `SELECT COUNT(*)::int AS count FROM users WHERE role IN ('admin', 'lead')`
     );
-    return result.rows[0] || null;
+    const role: UserRole = adminCount.rows[0]?.count === 0 ? 'lead' : 'buyer';
+
+    const result = await query(
+      `INSERT INTO users (telegram_id, username, display_name, role, is_active, last_active_at)
+       VALUES ($1, $2, $3, $4, true, NOW())
+       RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at`,
+      [telegramId, username || null, displayName || null, role]
+    );
+
+    logger.info({ telegramId, role }, 'Auto-registered new user');
+    return result.rows[0];
   } catch (error) {
-    logger.error(error, 'Error authenticating user');
+    logger.error(error, 'Error finding or creating user');
     throw error;
   }
 };
+
+export const authenticateUser = findOrCreateUser;
 
 export const getActiveUsers = async (): Promise<User[]> => {
   try {

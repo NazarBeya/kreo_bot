@@ -162,30 +162,6 @@ interface ModerationCreative {
     created_at: string;
 }
 
-const fallbackUploadPresets: UploadPreset[] = [
-    {
-        id: 'fallback-de-sugar',
-        name: 'DE sugar',
-        geo_codes: ['DE'],
-        angles: ['sugar'],
-        preland: '',
-    },
-    {
-        id: 'fallback-il-pl-mature',
-        name: 'IL+PL mature',
-        geo_codes: ['IL', 'PL'],
-        angles: ['mature'],
-        preland: '',
-    },
-    {
-        id: 'fallback-gb-milf',
-        name: 'GB MILF',
-        geo_codes: ['GB'],
-        angles: ['MILF'],
-        preland: '',
-    },
-];
-
 interface ProfileData {
     user: {
         id?: string;
@@ -221,71 +197,13 @@ declare global {
 
 const tones = ['ember', 'violet', 'berry', 'ocean'];
 
-const localPreviewCreatives: CreativeCard[] = [
-    {
-        id: 'local-preview-1',
-        shortId: 'CR-K5T2M',
-        fileType: 'video',
-        geos: ['IL'],
-        angles: ['Casual'],
-        status: 'new',
-        author: '@oleksiy',
-        createdAt: new Date(Date.now() - 4 * 3_600_000).toISOString(),
-        tone: 'ember',
-        testerCount: 0,
-        commentCount: 0,
-        bookmarked: false,
-        isArchived: false,
-    },
-    {
-        id: 'local-preview-2',
-        shortId: 'CR-T6Y8U',
-        fileType: 'video',
-        geos: ['DE'],
-        angles: ['Asian'],
-        status: 'new',
-        author: '@max',
-        createdAt: new Date(Date.now() - 6 * 3_600_000).toISOString(),
-        tone: 'violet',
-        testerCount: 0,
-        commentCount: 0,
-        bookmarked: false,
-        isArchived: false,
-    },
-    {
-        id: 'local-preview-3',
-        shortId: 'CR-P9L4A',
-        fileType: 'video',
-        geos: ['ES'],
-        angles: ['Latina'],
-        status: 'working',
-        author: '@maria',
-        createdAt: new Date(Date.now() - 26 * 3_600_000).toISOString(),
-        tone: 'berry',
-        testerCount: 0,
-        commentCount: 0,
-        bookmarked: false,
-        isArchived: false,
-    },
-    {
-        id: 'local-preview-4',
-        shortId: 'CR-H3N7V',
-        fileType: 'video',
-        geos: ['US'],
-        angles: ['Dating'],
-        status: 'new',
-        author: '@denys',
-        createdAt: new Date(Date.now() - 48 * 3_600_000).toISOString(),
-        tone: 'ocean',
-        testerCount: 0,
-        commentCount: 0,
-        bookmarked: false,
-        isArchived: false,
-    },
-];
-
-const isLocalPreview = import.meta.env.DEV
-    && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const AuthorWatermarks: React.FC<{ author: string; count?: number }> = ({ author, count = 6 }) => (
+    <div className="watermarks" aria-hidden="true">
+        {Array.from({ length: count }, (_, index) => (
+            <span key={index}>{author}</span>
+        ))}
+    </div>
+);
 
 const normalizeCreative = (creative: Record<string, any>, index: number): CreativeCard => ({
     id: creative.id,
@@ -536,16 +454,7 @@ const CreativePreview: React.FC<{ creative: CreativeCard; onOpen: (creative: Cre
                 {statusLabels[creative.status]}
             </span>
             {creative.isArchived && <span className="archive-badge">архів</span>}
-            {!creative.previewUrl && (
-                <div className="watermarks" aria-hidden="true">
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                </div>
-            )}
+            {!creative.previewUrl && <AuthorWatermarks author={creative.author} />}
             {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
             <div className="geo-list">
                 {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
@@ -577,16 +486,7 @@ const BookmarkPreview: React.FC<{ creative: CreativeCard; onOpen: (creative: Cre
                 <i />
                 {statusLabels[creative.status]}
             </span>
-            {!creative.previewUrl && (
-                <div className="watermarks" aria-hidden="true">
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                    <span>@denys</span>
-                </div>
-            )}
+            {!creative.previewUrl && <AuthorWatermarks author={creative.author} />}
             {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
             <div className="geo-list">
                 {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
@@ -616,27 +516,19 @@ const CreativeDetailsModal: React.FC<{
     onLifecycleUpdate: (creative: CreativeCard, status: 'actual' | 'fading' | 'not_running') => Promise<void>;
 }> = ({ creative, currentUser, onClose, onBookmarkToggle, onCommentAdded, onResurrect, onLifecycleUpdate }) => {
     const [activeTab, setActiveTab] = useState<'info' | 'versions' | 'testers' | 'comments'>('info');
-    const isCatalogCreative = creative.id.startsWith('local-preview');
     const [testers, setTesters] = useState<TesterStatus[]>([]);
     const [comments, setComments] = useState<CreativeComment[]>([]);
     const [versions, setVersions] = useState<CreativeVersion[]>([]);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [commentText, setCommentText] = useState('');
-    const testerCount = isCatalogCreative ? 0 : creative.testerCount;
-    const commentCount = isCatalogCreative ? 0 : creative.commentCount;
+    const testerCount = creative.testerCount;
+    const commentCount = creative.commentCount;
     const canManageLifecycle = Boolean(
-        !isCatalogCreative
-        && currentUser
+        currentUser
         && (currentUser.role === 'admin' || currentUser.role === 'lead' || currentUser.id === creative.authorId)
     );
 
     useEffect(() => {
-        if (isCatalogCreative) {
-            setTesters([]);
-            setComments([]);
-            return;
-        }
-
         const loadDetails = async () => {
             setDetailsLoading(true);
 
@@ -655,12 +547,12 @@ const CreativeDetailsModal: React.FC<{
         };
 
         void loadDetails();
-    }, [creative.id, isCatalogCreative]);
+    }, [creative.id]);
 
     const submitComment = async () => {
         const text = commentText.trim();
 
-        if (!text || isCatalogCreative) {
+        if (!text) {
             return;
         }
 
@@ -683,16 +575,7 @@ const CreativeDetailsModal: React.FC<{
                     {statusLabels[creative.status]}
                 </span>
                 {creative.isArchived && <span className="archive-badge">архів</span>}
-                {!creative.previewUrl && (
-                    <div className="watermarks" aria-hidden="true">
-                        <span>@denys</span>
-                        <span>@denys</span>
-                        <span>@denys</span>
-                        <span>@denys</span>
-                        <span>@denys</span>
-                        <span>@denys</span>
-                    </div>
-                )}
+                {!creative.previewUrl && <AuthorWatermarks author={creative.author} />}
                 <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
                 <div className="geo-list">
                     {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
@@ -897,10 +780,11 @@ const DetailField: React.FC<React.PropsWithChildren<{ label: string }>> = ({ lab
 
 const UploadScreen: React.FC<{
     presets: UploadPreset[];
+    uploaderLabel: string;
     telegramUploadSessionId?: string | null;
     onUploaded: () => Promise<void>;
-}> = ({ presets, telegramUploadSessionId, onUploaded }) => {
-    const availablePresets = presets.length ? presets : fallbackUploadPresets;
+}> = ({ presets, uploaderLabel, telegramUploadSessionId, onUploaded }) => {
+    const availablePresets = presets;
     const [files, setFiles] = useState<UploadFileCard[]>([]);
     const [selectedGeos, setSelectedGeos] = useState(['DE', 'IL']);
     const [selectedAngles, setSelectedAngles] = useState(['sugar']);
@@ -1280,6 +1164,7 @@ const UploadScreen: React.FC<{
                             <UploadPreview
                                 file={file}
                                 key={file.id}
+                                uploaderLabel={uploaderLabel}
                                 onRemove={() => setFiles((current) => current.filter((item) => item.id !== file.id))}
                                 onToggleOverride={() => updateFile(file.id, {
                                     override: !file.override,
@@ -1333,11 +1218,12 @@ const UploadOptionGroup: React.FC<{
 
 const UploadPreview: React.FC<{
     file: UploadFileCard;
+    uploaderLabel: string;
     onRemove: () => void;
     onToggleOverride: () => void;
     onToggleValue: (value: string, key: 'geos' | 'angles') => void;
     onUpdate: (fileId: string, changes: Partial<UploadFileCard>) => void;
-}> = ({ file, onRemove, onToggleOverride, onToggleValue, onUpdate }) => (
+}> = ({ file, uploaderLabel, onRemove, onToggleOverride, onToggleValue, onUpdate }) => (
     <article className="upload-file-card">
         <div className={`upload-file-preview tone-${file.tone}`}>
             <span className={`override-badge status-${file.uploadStatus}`}>
@@ -1349,12 +1235,7 @@ const UploadPreview: React.FC<{
                             ? 'duplicate'
                             : file.uploadStatus}
             </span>
-            <div className="watermarks" aria-hidden="true">
-                <span>@denys</span>
-                <span>@denys</span>
-                <span>@denys</span>
-                <span>@denys</span>
-            </div>
+            <AuthorWatermarks author={uploaderLabel} count={4} />
         </div>
         <div>
             <strong>{file.name}</strong>
@@ -1864,15 +1745,6 @@ export const App: React.FC = () => {
             }
 
             if (!webApp?.initData) {
-                if (isLocalPreview && !isAdminPath) {
-                    setCreatives(localPreviewCreatives);
-                    setBookmarkCreatives([]);
-                    setFeedItems([]);
-                    setTotal(14);
-                    setLoading(false);
-                    return;
-                }
-
                 setIsTelegramMiniApp(false);
                 setLoading(false);
                 return;
@@ -1897,10 +1769,6 @@ export const App: React.FC = () => {
     }, []);
 
     const toggleBookmark = async (creative: CreativeCard) => {
-        if (creative.id.startsWith('local-preview')) {
-            return;
-        }
-
         if (creative.bookmarked) {
             await apiClient.delete(`/api/app/bookmarks/${creative.id}`);
         } else {
@@ -1938,10 +1806,6 @@ export const App: React.FC = () => {
     };
 
     const resurrectCreative = async (creative: CreativeCard) => {
-        if (creative.id.startsWith('local-preview')) {
-            return;
-        }
-
         await apiClient.post(`/api/status/${creative.id}/resurrect`, {
             geoCode: creative.geos[0],
         });
@@ -2081,6 +1945,18 @@ export const App: React.FC = () => {
     }
 
     if (isAdminPath) {
+        if (loading) {
+            return <main className="app-shell"><p className="state-message">завантаження адмінки...</p></main>;
+        }
+
+        if (error) {
+            return (
+                <main className="app-shell">
+                    <p className="state-message">{error}</p>
+                </main>
+            );
+        }
+
         return (
             <AdminScreen
                 dashboard={adminDashboard}
@@ -2163,6 +2039,11 @@ export const App: React.FC = () => {
                 <div className="noise" />
                 <UploadScreen
                     presets={profile?.presets || []}
+                    uploaderLabel={
+                        profile?.user.username
+                            ? `@${profile.user.username}`
+                            : profile?.user.displayName || 'невідомо'
+                    }
                     telegramUploadSessionId={telegramUploadSessionId}
                     onUploaded={loadAppData}
                 />
