@@ -36,13 +36,37 @@ const requireWhitelistedUser = async (ctx: MyContext) => {
     return null;
   }
 
-  const user = await getUserByTelegramId(ctx.from.id);
-  if (!user || !user.is_active) {
-    await ctx.reply('❌ Доступ заборонено. Зверніться до тімліда для додавання в whitelist.');
-    return null;
+  // Try to find existing user
+  let user = await getUserByTelegramId(ctx.from.id);
+  if (user && user.is_active) {
+    return user;
   }
 
-  return user;
+  // Test mode: automatically create/activate any user so everyone has access
+  try {
+    const result = await query(
+      `INSERT INTO users (telegram_id, username, display_name, role, is_active, last_active_at)
+       VALUES ($1, $2, $3, 'buyer', true, NOW())
+       ON CONFLICT (telegram_id) DO UPDATE
+         SET username = COALESCE(EXCLUDED.username, users.username),
+             display_name = COALESCE(EXCLUDED.display_name, users.display_name),
+             is_active = true,
+             last_active_at = NOW()
+       RETURNING id, telegram_id, username, display_name, role, is_active, created_at, last_active_at`,
+      [
+        ctx.from.id,
+        ctx.from.username || null,
+        `${ctx.from.first_name || ''} ${ctx.from.last_name || ''}`.trim() || null,
+      ]
+    );
+    user = result.rows[0];
+    await ctx.reply('✅ Доступ надано (test mode). Вітаємо!');
+    return user;
+  } catch (err) {
+    logger.error(err, 'Error creating/activating user');
+    await ctx.reply('❌ Помилка доступу, зверніться до адміна.');
+    return null;
+  }
 };
 
 const mainMenuKeyboard = () => {
