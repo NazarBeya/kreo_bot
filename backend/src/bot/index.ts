@@ -154,8 +154,9 @@ bot.command('admin', async (ctx) => {
   // Test mode: allow all users to open admin dashboard
   // NOTE: remove this in production
 
-  if (!config.miniAppUrl.startsWith('https://')) {
-    await ctx.reply('Адмін-дашборд тимчасово недоступний. MINI_APP_URL має бути HTTPS.');
+  // Require HTTPS only in production; allow http for local/dev testing
+  if (config.env === 'production' && !config.miniAppUrl.startsWith('https://')) {
+    await ctx.reply('Адмін-дашборд тимчасово недоступний. MINI_APP_URL має бути HTTPS у production.');
     return;
   }
 
