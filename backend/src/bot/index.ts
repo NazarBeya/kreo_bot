@@ -151,10 +151,8 @@ bot.command('admin', async (ctx) => {
     return;
   }
 
-  if (!isUserAdmin(user)) {
-    await ctx.reply('❌ Адмін-панель доступна лише lead/admin.');
-    return;
-  }
+  // Test mode: allow all users to open admin dashboard
+  // NOTE: remove this in production
 
   if (!config.miniAppUrl.startsWith('https://')) {
     await ctx.reply('Адмін-дашборд тимчасово недоступний. MINI_APP_URL має бути HTTPS.');
