@@ -61,6 +61,14 @@ VITE_BOT_USERNAME=<bot_username_without_@>
 
 If Render gives different service URLs, use the actual URLs from the service pages.
 
+The Blueprint includes a SPA rewrite rule (`/*` → `/index.html`) so `/admin` and other client routes work on the static frontend. Without it, Render returns a host-level `Not Found` before React loads.
+
+If `/admin` still returns `Not Found` after a Blueprint sync, open `creative-bot-frontend` → **Redirects/Rewrites** and confirm this rule exists:
+
+| Source | Destination | Action |
+|--------|-------------|--------|
+| `/*` | `/index.html` | Rewrite |
+
 ## After Deploy
 
 Check backend health:
