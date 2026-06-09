@@ -210,7 +210,8 @@ const exportDatasetRows = async (dataset: string) => {
   return exportCreativesRows();
 };
 
-adminRouter.get('/dashboard', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to admin dashboard
+adminRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
     const [summary, statusRows, weeklyRows, angleRows, moderationRows] = await Promise.all([
       query(
@@ -286,7 +287,8 @@ adminRouter.get('/dashboard', requireAdmin, async (req: Request, res: Response) 
   }
 });
 
-adminRouter.get('/analytics', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to admin analytics
+adminRouter.get('/analytics', async (req: Request, res: Response) => {
   try {
     const [
       geoRows,
@@ -417,7 +419,8 @@ adminRouter.get('/analytics', requireAdmin, async (req: Request, res: Response) 
   }
 });
 
-adminRouter.get('/buyers/track-record', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to buyers track record
+adminRouter.get('/buyers/track-record', async (req: Request, res: Response) => {
   try {
     res.json({ data: await buyerTrackRecordRows() });
   } catch (error) {
@@ -426,7 +429,8 @@ adminRouter.get('/buyers/track-record', requireAdmin, async (req: Request, res: 
   }
 });
 
-adminRouter.get('/exports', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to exports list
+adminRouter.get('/exports', async (req: Request, res: Response) => {
   try {
     const dataset = String(req.query.dataset || 'creatives');
     const format = String(req.query.format || 'csv');
@@ -445,7 +449,8 @@ adminRouter.get('/exports', requireAdmin, async (req: Request, res: Response) =>
   }
 });
 
-adminRouter.get('/exports/creatives.csv', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to creative CSV export
+adminRouter.get('/exports/creatives.csv', async (req: Request, res: Response) => {
   try {
     const rows = await exportCreativesRows();
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -457,7 +462,8 @@ adminRouter.get('/exports/creatives.csv', requireAdmin, async (req: Request, res
   }
 });
 
-adminRouter.get('/exports/creatives.xls', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to creative XLS export
+adminRouter.get('/exports/creatives.xls', async (req: Request, res: Response) => {
   try {
     const rows = await exportCreativesRows();
     res.setHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
@@ -469,7 +475,8 @@ adminRouter.get('/exports/creatives.xls', requireAdmin, async (req: Request, res
   }
 });
 
-adminRouter.get('/angles', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to angles list
+adminRouter.get('/angles', async (req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT id, value, is_active, sort_order, created_at
@@ -484,7 +491,8 @@ adminRouter.get('/angles', requireAdmin, async (req: Request, res: Response) => 
   }
 });
 
-adminRouter.post('/angles', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to create angles
+adminRouter.post('/angles', async (req: Request, res: Response) => {
   try {
     const value = String(req.body.value || '').trim();
     const sortOrder = Number.isFinite(Number(req.body.sort_order)) ? Number(req.body.sort_order) : null;
@@ -509,7 +517,8 @@ adminRouter.post('/angles', requireAdmin, async (req: Request, res: Response) =>
   }
 });
 
-adminRouter.put('/angles/:id', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to update angles
+adminRouter.put('/angles/:id', async (req: Request, res: Response) => {
   try {
     const result = await query(
       `UPDATE reference_lists
@@ -537,7 +546,8 @@ adminRouter.put('/angles/:id', requireAdmin, async (req: Request, res: Response)
   }
 });
 
-adminRouter.delete('/angles/:id', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to delete angles
+adminRouter.delete('/angles/:id', async (req: Request, res: Response) => {
   try {
     await query(`UPDATE reference_lists SET is_active = false WHERE id = $1 AND list_type = 'angle'`, [req.params.id]);
     res.json({ message: 'Angle disabled' });
@@ -547,7 +557,8 @@ adminRouter.delete('/angles/:id', requireAdmin, async (req: Request, res: Respon
   }
 });
 
-adminRouter.get('/settings', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to settings
+adminRouter.get('/settings', async (req: Request, res: Response) => {
   try {
     const result = await query('SELECT key, value, updated_at FROM admin_settings ORDER BY key');
     res.json({ data: Object.fromEntries(result.rows.map((row: { key: string; value: unknown }) => [row.key, row.value])) });
@@ -557,7 +568,8 @@ adminRouter.get('/settings', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-adminRouter.put('/settings', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to update settings
+adminRouter.put('/settings', async (req: Request, res: Response) => {
   try {
     const entries = Object.entries(req.body || {});
 
@@ -580,7 +592,8 @@ adminRouter.put('/settings', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-adminRouter.get('/moderation', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to moderation queue
+adminRouter.get('/moderation', async (req: Request, res: Response) => {
   try {
     const status = String(req.query.status || 'pending_review');
     const search = String(req.query.q || '').trim();
@@ -623,7 +636,8 @@ adminRouter.get('/moderation', requireAdmin, async (req: Request, res: Response)
   }
 });
 
-adminRouter.post('/moderation/:creativeId', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to moderate creatives
+adminRouter.post('/moderation/:creativeId', async (req: Request, res: Response) => {
   try {
     const action = String(req.body.action || '');
     const moderationStatus = action === 'approve'
@@ -670,7 +684,8 @@ adminRouter.post('/moderation/:creativeId', requireAdmin, async (req: Request, r
   }
 });
 
-adminRouter.get('/users', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to users list
+adminRouter.get('/users', async (req: Request, res: Response) => {
   try {
     const result = await query('SELECT id, telegram_id, username, display_name, role, is_active, created_at, last_active_at FROM users ORDER BY created_at DESC');
     res.json({ data: result.rows });
@@ -680,7 +695,8 @@ adminRouter.get('/users', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-adminRouter.put('/users/:id', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to update user
+adminRouter.put('/users/:id', async (req: Request, res: Response) => {
   try {
     const { role, is_active } = req.body;
     const { id } = req.params;
@@ -709,7 +725,8 @@ adminRouter.put('/users/:id', requireAdmin, async (req: Request, res: Response) 
   }
 });
 
-adminRouter.post('/users/whitelist', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to whitelist users
+adminRouter.post('/users/whitelist', async (req: Request, res: Response) => {
   try {
     const { telegram_id, role, username, display_name } = req.body;
     
@@ -734,7 +751,8 @@ adminRouter.post('/users/whitelist', requireAdmin, async (req: Request, res: Res
   }
 });
 
-adminRouter.post('/maintenance/auto-archive', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to auto-archive maintenance
+adminRouter.post('/maintenance/auto-archive', async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || await getNumericSetting('auto_archive_dead_days');
     const archivedCount = await archiveDeadCreatives(days);
@@ -746,7 +764,8 @@ adminRouter.post('/maintenance/auto-archive', requireAdmin, async (req: Request,
   }
 });
 
-adminRouter.post('/maintenance/prune-download-logs', requireAdmin, async (req: Request, res: Response) => {
+// Test mode: Allow public access to prune download logs
+adminRouter.post('/maintenance/prune-download-logs', async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || undefined;
     const prunedCount = await pruneDownloadLogs(days);

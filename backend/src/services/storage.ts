@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { config } from '../config.js';
+import { logger } from '../logger.js';
 
 interface PutObjectInput {
   key: string;
@@ -91,30 +92,57 @@ const requestObjectStorage = async (
   const url = new URL(`${endpoint.pathname.replace(/\/$/, '')}${path}`, endpoint.toString());
   const headers = signRequest(method, url, body, contentType);
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: method === 'GET' || method === 'HEAD' ? undefined : body,
-  });
+  logger.debug(`[S3] ${method} ${url.toString()}`);
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(`Object storage ${method} ${path} failed: ${response.status} ${message}`);
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: method === 'GET' || method === 'HEAD' ? undefined : body,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`Object storage ${method} ${path} failed: ${response.status} ${message}`);
+    }
+
+    return response;
+  } catch (error: any) {
+    logger.error(
+      { 
+        error: error.message, 
+        url: url.toString(), 
+        method,
+        endpoint: config.s3.endpoint,
+      }, 
+      `[S3] Request failed`
+    );
+    throw error;
   }
-
-  return response;
 };
 
 export const ensureBucket = async () => {
+  logger.debug(`[S3] Ensuring bucket exists: ${config.s3.bucket}`);
   try {
     await requestObjectStorage('HEAD', `/${config.s3.bucket}`);
-  } catch {
+    logger.debug(`[S3] Bucket already exists: ${config.s3.bucket}`);
+  } catch (error: any) {
+    logger.debug(`[S3] Bucket not found, creating: ${config.s3.bucket}`);
     try {
       await requestObjectStorage('PUT', `/${config.s3.bucket}`);
-    } catch (error: any) {
-      if (!String(error?.message || '').includes('409')) {
-        throw error;
+      logger.info(`[S3] Created bucket: ${config.s3.bucket}`);
+    } catch (createError: any) {
+      if (!String(createError?.message || '').includes('409')) {
+        logger.error({ error: createError }, `[S3] Failed to create bucket`);
+        throw createError;
       }
+      logger.debug(`[S3] Bucket already exists (409)`);
     }
   }
 };
