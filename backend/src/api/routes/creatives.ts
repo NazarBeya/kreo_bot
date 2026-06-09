@@ -116,7 +116,8 @@ const uploadCreativeFromRequest = async (
   return result;
 };
 
-creativeRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+// Test mode: Allow public access to catalog
+creativeRouter.get('/', async (req: Request, res: Response) => {
   try {
     const geos = req.query.geos ? (req.query.geos as string).split(',') : undefined;
     const angles = req.query.angles ? (req.query.angles as string).split(',') : undefined;
@@ -470,7 +471,8 @@ creativeRouter.get('/:id/preview', async (req: Request, res: Response) => {
   }
 });
 
-creativeRouter.get('/:id/context', requireAuth, async (req: Request, res: Response) => {
+// Test mode: Allow public access to creative context
+creativeRouter.get('/:id/context', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     let creative = await getCreativeByShortId(id);
@@ -508,7 +510,8 @@ creativeRouter.get('/:id/context', requireAuth, async (req: Request, res: Respon
   }
 });
 
-creativeRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
+// Test mode: Allow public access to view creative details
+creativeRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -522,9 +525,10 @@ creativeRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Creative not found' });
     }
 
-    if (req.user?.role === 'designer' && (creative as any).author_id !== req.user.id && creative.authorId !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied to this creative' });
-    }
+    // Test mode: Allow all users to view creatives (designer restrictions removed)
+    // if (req.user?.role === 'designer' && (creative as any).author_id !== req.user.id && creative.authorId !== req.user.id) {
+    //   return res.status(403).json({ error: 'Access denied to this creative' });
+    // }
 
     res.json({ data: creative });
   } catch (error) {

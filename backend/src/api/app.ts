@@ -8,25 +8,8 @@ import { metricsMiddleware, renderMetrics } from '../services/metrics.js';
 import { query } from '../db/pool.js';
 import redis from '../db/redis.js';
 
-let Sentry: any = null;
-
-// Try to load Sentry if available
-try {
-  const sentryModule = await import('@sentry/node');
-  Sentry = sentryModule;
-} catch (e) {
-  logger.warn('Sentry package not found, continuing without error tracking');
-}
-
 export const createApp = () => {
-  if (config.sentry.dsn && Sentry?.init) {
-    Sentry.init({
-      dsn: config.sentry.dsn,
-      environment: config.env,
-      release: config.sentry.release,
-      tracesSampleRate: config.env === 'production' ? 0.05 : 0,
-    });
-  }
+  // Sentry initialization skipped - not configured (SENTRY_DSN is empty)
 
   const app = express();
 
