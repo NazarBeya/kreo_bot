@@ -2,15 +2,24 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import * as Sentry from '@sentry/node';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { metricsMiddleware, renderMetrics } from '../services/metrics.js';
 import { query } from '../db/pool.js';
 import redis from '../db/redis.js';
 
+let Sentry: any = null;
+
+// Try to load Sentry if available
+try {
+  const sentryModule = await import('@sentry/node');
+  Sentry = sentryModule;
+} catch (e) {
+  logger.warn('Sentry package not found, continuing without error tracking');
+}
+
 export const createApp = () => {
-  if (config.sentry.dsn) {
+  if (config.sentry.dsn && Sentry?.init) {
     Sentry.init({
       dsn: config.sentry.dsn,
       environment: config.env,

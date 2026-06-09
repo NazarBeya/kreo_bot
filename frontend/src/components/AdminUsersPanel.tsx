@@ -34,12 +34,18 @@ export const AdminUsersPanel: React.FC = () => {
     });
     setTelegramId('');
     setUsername('');
+    setRole('buyer');
     await loadUsers();
   };
 
   const updateUser = async (user: AdminUser, patch: Partial<AdminUser>) => {
     await apiClient.put(`/api/admin/users/${user.id}`, patch);
     await loadUsers();
+  };
+
+  const goToProfile = (userId: string) => {
+    // Navigate to profile catalog view
+    window.location.hash = `#catalog?user=${userId}`;
   };
 
   return (
@@ -60,7 +66,9 @@ export const AdminUsersPanel: React.FC = () => {
         {users.map((user) => (
           <article key={user.id}>
             <div>
-              <strong>@{user.username || user.display_name || user.telegram_id}</strong>
+              <strong style={{ cursor: 'pointer' }} onClick={() => goToProfile(user.id)}>
+                @{user.username || user.display_name || user.telegram_id}
+              </strong>
               <small>{user.role} · tg:{user.telegram_id}</small>
             </div>
             <select

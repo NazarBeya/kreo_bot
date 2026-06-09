@@ -422,8 +422,19 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
 .buyer-record-list b, .reviewer-list strong, .month-dynamics b { color: #ffd000; }
 .month-dynamics i { color: #54e698; font-style: normal; }
 .buyer-record-list b.warn { color: #ff8f66; }
-.admin-inline-form { display: grid; grid-template-columns: 1fr 52px; gap: 10px; margin-bottom: 12px; }
-.admin-inline-form input, .admin-settings input {
+.buyer-record-list select, .buyer-record-list button {
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 7px;
+  color: #f2f1ee;
+  background: rgba(255,255,255,.035);
+  font: inherit;
+}
+.buyer-record-list select { padding: 0 8px; min-width: 90px; min-height: 38px; }
+.buyer-record-list select option { color: #111; background: #f2f1ee; }
+.buyer-record-list button { padding: 0 12px; min-height: 38px; cursor: pointer; }
+.buyer-record-list button.active { border-color: #ffd000; color: #111; background: #ffd000; }
+.admin-inline-form { display: grid; grid-template-columns: 1fr 1fr 1fr 80px; gap: 10px; margin-bottom: 12px; }
+.admin-inline-form input, .admin-inline-form select, .admin-settings input {
   min-width: 0;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 7px;
@@ -431,6 +442,8 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   background: rgba(255,255,255,.025);
 }
 .admin-inline-form input { padding: 0 14px; }
+.admin-inline-form select { padding: 0 8px; font: inherit; color: #f2f1ee; }
+.admin-inline-form button { min-height: 46px; }
 .admin-settings { display: grid; gap: 12px; }
 .admin-settings label {
   display: grid;
