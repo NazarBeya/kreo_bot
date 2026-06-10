@@ -40,6 +40,10 @@ services:
         generateValue: true
       - key: JWT_SECRET
         generateValue: true
+      - key: STORAGE_DRIVER
+        value: local
+      - key: STORAGE_LOCAL_DIR
+        value: /app/uploads
       - key: S3_ENDPOINT
         sync: false
       - key: S3_PUBLIC_URL

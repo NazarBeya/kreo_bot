@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 
@@ -128,6 +130,12 @@ const requestObjectStorage = async (
 };
 
 export const ensureBucket = async () => {
+  if (config.storage.driver === 'local') {
+    logger.debug(`[Storage] Ensuring local directory exists: ${config.storage.localDir}`);
+    await mkdir(config.storage.localDir, { recursive: true });
+    return;
+  }
+
   logger.debug(`[S3] Ensuring bucket exists: ${config.s3.bucket}`);
   try {
     await requestObjectStorage('HEAD', `/${config.s3.bucket}`);
@@ -152,6 +160,11 @@ export const extractObjectKey = (fileUrlOrKey: string): string => {
     return '';
   }
 
+  const localBase = config.apiUrl.replace(/\/$/, '') + '/uploads/';
+  if (fileUrlOrKey.startsWith(localBase)) {
+    return decodeURIComponent(fileUrlOrKey.substring(localBase.length));
+  }
+
   const publicBase = config.s3.publicUrl.replace(/\/$/, '') + '/' + config.s3.bucket + '/';
   if (fileUrlOrKey.startsWith(publicBase)) {
     return decodeURIComponent(fileUrlOrKey.substring(publicBase.length));
@@ -171,12 +184,25 @@ export const extractObjectKey = (fileUrlOrKey: string): string => {
 
 export const getObject = async (fileUrlOrKey: string): Promise<Buffer> => {
   const key = extractObjectKey(fileUrlOrKey);
+  if (config.storage.driver === 'local') {
+    const filePath = path.join(config.storage.localDir, key);
+    return await readFile(filePath);
+  }
+
   const response = await requestObjectStorage('GET', `/${config.s3.bucket}/${encodePath(key)}`);
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
 };
 
 export const putObject = async ({ key, body, contentType }: PutObjectInput): Promise<string> => {
+  if (config.storage.driver === 'local') {
+    const filePath = path.join(config.storage.localDir, key);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, body);
+    const apiBase = config.apiUrl.replace(/\/$/, '');
+    return `${apiBase}/uploads/${encodePath(key)}`;
+  }
+
   await requestObjectStorage('PUT', `/${config.s3.bucket}/${encodePath(key)}`, body, contentType);
 
   const publicBase = config.s3.publicUrl.replace(/\/$/, '');
@@ -185,6 +211,12 @@ export const putObject = async ({ key, body, contentType }: PutObjectInput): Pro
 
 export const getSignedUrl = (fileUrlOrKey: string, expiresInSeconds: number = 3600): string => {
   if (!fileUrlOrKey) return '';
+
+  if (config.storage.driver === 'local') {
+    const key = extractObjectKey(fileUrlOrKey);
+    const apiBase = config.apiUrl.replace(/\/$/, '');
+    return `${apiBase}/uploads/${encodePath(key)}`;
+  }
 
   const safeExpiresInSeconds = Math.min(
     Math.max(Number.isFinite(expiresInSeconds) ? expiresInSeconds : 900, 60),

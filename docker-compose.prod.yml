@@ -68,8 +68,12 @@ services:
       SIGNED_PREVIEW_URL_TTL_SECONDS: ${SIGNED_PREVIEW_URL_TTL_SECONDS:-900}
       SIGNED_DOWNLOAD_URL_TTL_SECONDS: ${SIGNED_DOWNLOAD_URL_TTL_SECONDS:-900}
       DOWNLOAD_LOG_RETENTION_DAYS: ${DOWNLOAD_LOG_RETENTION_DAYS:-365}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+      STORAGE_LOCAL_DIR: ${STORAGE_LOCAL_DIR:-/app/uploads}
     ports:
       - "3000:3000"
+    volumes:
+      - backend_uploads:/app/uploads
     restart: always
     depends_on:
       postgres:
@@ -208,6 +212,10 @@ services:
       SENTRY_RELEASE: ${SENTRY_RELEASE:-0.1.0}
       DOWNLOAD_LOG_RETENTION_DAYS: ${DOWNLOAD_LOG_RETENTION_DAYS:-365}
       OPS_JOB_INTERVAL_SECONDS: ${OPS_JOB_INTERVAL_SECONDS:-3600}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
+      STORAGE_LOCAL_DIR: ${STORAGE_LOCAL_DIR:-/app/uploads}
+    volumes:
+      - backend_uploads:/app/uploads
     command: sh -c "while true; do npm run ops:maintenance; sleep $${OPS_JOB_INTERVAL_SECONDS}; done"
     depends_on:
       postgres:
@@ -275,6 +283,7 @@ volumes:
   prometheus_data_prod:
   loki_data_prod:
   grafana_data_prod:
+  backend_uploads:
 
 networks:
   default:

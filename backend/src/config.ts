@@ -28,6 +28,12 @@ export const config = {
     region: process.env.S3_REGION || 'us-east-1',
   },
 
+  storage: {
+    driver: process.env.STORAGE_DRIVER || 
+      (process.env.NODE_ENV === 'production' && (!process.env.S3_ACCESS_KEY || process.env.S3_ACCESS_KEY === 'minioadmin') ? 'local' : 's3'),
+    localDir: process.env.STORAGE_LOCAL_DIR || path.resolve(process.cwd(), 'uploads'),
+  },
+
   signedUrls: {
     previewTtlSeconds: parseInt(process.env.SIGNED_PREVIEW_URL_TTL_SECONDS || '900', 10),
     downloadTtlSeconds: parseInt(process.env.SIGNED_DOWNLOAD_URL_TTL_SECONDS || '900', 10),

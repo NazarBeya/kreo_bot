@@ -9,15 +9,17 @@ This is the temporary/free deployment path for a demo environment.
 - `creative-bot-db`: Render Postgres.
 - `creative-bot-redis`: Render Key Value.
 
-Object storage is not hosted on Render in this setup. Use Cloudflare R2, Backblaze B2, AWS S3, or another S3-compatible bucket.
+Object storage is not hosted on Render in this setup. By default, the application is configured to fall back to **local filesystem storage** (`STORAGE_DRIVER=local`) if S3 credentials are not configured, meaning you do not need an S3 provider to get started! 
 
-## Before Deploy
+> [!NOTE]
+> Render's filesystem is ephemeral on the free tier (files are deleted when the container restarts). For persistent production use, it is highly recommended to configure an external S3-compatible bucket or attach a Render Disk to `/app/uploads`.
 
-Create an S3-compatible bucket, for example in Cloudflare R2.
+## Before Deploy (Optional S3 Configuration)
 
-Required storage values:
+If you want to use persistent external storage, create an S3-compatible bucket, for example in Cloudflare R2, and configure the following storage values:
 
 ```env
+STORAGE_DRIVER=s3
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 S3_PUBLIC_URL=https://<account-id>.r2.cloudflarestorage.com
 S3_ACCESS_KEY=...
@@ -44,6 +46,8 @@ API_URL=https://creative-bot-backend.onrender.com
 MINI_APP_URL=https://creative-bot-frontend.onrender.com
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_BOT_USERNAME=...
+STORAGE_DRIVER=local
+STORAGE_LOCAL_DIR=/app/uploads
 S3_ENDPOINT=...
 S3_PUBLIC_URL=...
 S3_ACCESS_KEY=...
