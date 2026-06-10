@@ -61,6 +61,18 @@ export const AdminUsersPanel: React.FC = () => {
     window.location.hash = `#catalog?user=${userId}`;
   };
 
+  const deleteUserCreatives = async (user: AdminUser) => {
+    const label = user.username ? `@${user.username}` : user.display_name || String(user.telegram_id);
+    if (!window.confirm(`Видалити всі крео користувача ${label}? Цю дію не можна скасувати.`)) {
+      return;
+    }
+
+    const identifier = user.username || user.id;
+    const response = await apiClient.delete(`/api/admin/users/${identifier}/creatives`);
+    const deleted = response.data.data?.deleted ?? 0;
+    window.alert(`Видалено ${deleted} крео.`);
+  };
+
   return (
     <section className="admin-panel">
       <h2>користувачі</h2>
@@ -99,6 +111,7 @@ export const AdminUsersPanel: React.FC = () => {
             >
               {user.is_active ? 'active' : 'blocked'}
             </button>
+            <button onClick={() => void deleteUserCreatives(user)}>видалити крео</button>
           </article>
         ))}
       </div>

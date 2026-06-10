@@ -786,4 +786,39 @@ adminRouter.post('/maintenance/prune-download-logs', async (req: Request, res: R
   }
 });
 
+adminRouter.delete('/users/:id/creatives', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const identifier = req.params.id.replace(/^@/, '');
+    let userId = identifier;
+
+    if (!/^[0-9a-f-]{36}$/i.test(identifier)) {
+      const userResult = await query(
+        'SELECT id, username FROM users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+        [identifier]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      userId = userResult.rows[0].id;
+    }
+
+    const result = await query(
+      'DELETE FROM creatives WHERE author_id = $1 RETURNING id, short_id',
+      [userId]
+    );
+
+    res.json({
+      data: {
+        deleted: result.rows.length,
+        shortIds: result.rows.map((row) => row.short_id),
+      },
+    });
+  } catch (error) {
+    logger.error(error, 'Error deleting user creatives');
+    res.status(500).json({ error: 'Failed to delete user creatives' });
+  }
+});
+
 export default adminRouter;

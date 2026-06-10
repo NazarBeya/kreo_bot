@@ -201,6 +201,15 @@ declare global {
 
 const tones = ['ember', 'violet', 'berry', 'ocean'];
 
+const CreativePreviewMedia: React.FC<{ creativeId: string }> = ({ creativeId }) => (
+    <img
+        className="creative-preview-media"
+        src={getWatermarkedPreviewUrl(creativeId)}
+        alt=""
+        loading="lazy"
+    />
+);
+
 const ViewerWatermarks: React.FC<{ viewerLabel: string; count?: number }> = ({ viewerLabel, count = 6 }) => (
     <div className="watermarks" aria-hidden="true">
         {Array.from({ length: count }, (_, index) => (
@@ -489,10 +498,8 @@ const CreativePreview: React.FC<{
     onOpen,
 }) => (
         <article className="creative-card catalog-card" onClick={() => onOpen(creative)}>
-            <div
-                className={`creative-preview tone-${creative.tone}`}
-                style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
-            >
+            <div className={`creative-preview tone-${creative.tone}`}>
+                <CreativePreviewMedia creativeId={creative.id} />
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
@@ -527,10 +534,8 @@ const BookmarkPreview: React.FC<{
     onOpen,
 }) => (
         <article className="creative-card bookmark-card" onClick={() => onOpen(creative)}>
-            <div
-                className={`creative-preview tone-${creative.tone}`}
-                style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
-            >
+            <div className={`creative-preview tone-${creative.tone}`}>
+                <CreativePreviewMedia creativeId={creative.id} />
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
@@ -679,17 +684,17 @@ const CreativeDetailsModal: React.FC<{
                 }}
             >
                 <div className="details-handle" />
-                <div
-                    className={`details-preview tone-${creative.tone}`}
-                    style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
-                >
+                <div className={`details-preview tone-${creative.tone}`}>
+                    <CreativePreviewMedia creativeId={creative.id} />
                     <span className={`status-pill status-${creative.status}`}>
                         <i />
                         {statusLabels[creative.status]}
                     </span>
                     {creative.isArchived && <span className="archive-badge">архів</span>}
                     <ViewerWatermarks viewerLabel={viewerLabel} />
-                    <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
+                    {creative.fileType === 'video' && (
+                        <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
+                    )}
                     <div className="geo-list">
                         {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
                     </div>
@@ -2124,6 +2129,13 @@ export const App: React.FC = () => {
             return;
         }
 
+        const scrollY = window.scrollY;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.overflow = 'hidden';
+
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setSelectedCreative(null);
@@ -2131,7 +2143,15 @@ export const App: React.FC = () => {
         };
 
         window.addEventListener('keydown', closeOnEscape);
-        return () => window.removeEventListener('keydown', closeOnEscape);
+        return () => {
+            window.removeEventListener('keydown', closeOnEscape);
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+            document.body.style.right = '';
+            document.body.style.overflow = '';
+            window.scrollTo(0, scrollY);
+        };
     }, [selectedCreative]);
 
     const viewerLabel = profile?.user.username
