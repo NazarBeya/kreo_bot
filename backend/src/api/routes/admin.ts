@@ -812,7 +812,7 @@ adminRouter.delete('/users/:id/creatives', requireAdmin, async (req: Request, re
     res.json({
       data: {
         deleted: result.rows.length,
-        shortIds: result.rows.map((row) => row.short_id),
+        shortIds: result.rows.map((row: { short_id: string }) => row.short_id),
       },
     });
   } catch (error) {
