@@ -428,20 +428,29 @@ const resolvePreviewUser = async (req: Request) => {
     return req.user;
   }
 
-  const token = String(req.query.token || '');
+  const authHeader = req.headers.authorization;
+  const token = String(
+    req.query.token
+    || (authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : '')
+  );
+
   if (!token) {
     return null;
   }
 
-  const decoded = jwt.verify(token, config.jwtSecret) as { telegramId: number };
-  const result = await query(
-    'SELECT id, telegram_id, username, display_name, role, is_active FROM users WHERE telegram_id = $1 LIMIT 1',
-    [decoded.telegramId]
-  );
-  return result.rows[0] || null;
+  try {
+    const decoded = jwt.verify(token, config.jwtSecret) as { telegramId: number };
+    const result = await query(
+      'SELECT id, telegram_id, username, display_name, role, is_active FROM users WHERE telegram_id = $1 LIMIT 1',
+      [decoded.telegramId]
+    );
+    return result.rows[0] || null;
+  } catch {
+    return null;
+  }
 };
 
-creativeRouter.get('/:id/preview', async (req: Request, res: Response) => {
+export const creativePreviewHandler = async (req: Request, res: Response) => {
   try {
     const viewer = await resolvePreviewUser(req);
     if (!viewer || !viewer.is_active) {
@@ -469,7 +478,7 @@ creativeRouter.get('/:id/preview', async (req: Request, res: Response) => {
     logger.error(error, 'Error generating watermarked preview');
     res.status(500).json({ error: 'Failed to generate preview' });
   }
-});
+};
 
 // Test mode: Allow public access to creative context
 creativeRouter.get('/:id/context', async (req: Request, res: Response) => {
