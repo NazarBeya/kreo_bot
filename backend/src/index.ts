@@ -44,7 +44,11 @@ const startServer = async () => {
 
         if (useProductionWebhook()) {
           const webhookUrl = await activateTelegramWebhook(bot);
-          logger.info(`✅ Bot webhook active: ${webhookUrl}`);
+          const webhookInfo = await bot.api.getWebhookInfo();
+          logger.info({ webhookUrl, telegramUrl: webhookInfo.url, pending: webhookInfo.pending_update_count }, '✅ Bot webhook active');
+          if (!webhookInfo.url) {
+            logger.error('Telegram webhook registration failed — URL is empty after setWebhook');
+          }
         } else {
           logger.info('🤖 Starting Telegram bot polling...');
           void bot.start({

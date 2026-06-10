@@ -11,19 +11,11 @@ export const useProductionWebhook = () =>
   && Boolean(config.telegram.botToken);
 
 export const mountTelegramWebhook = (app: Express, bot: Bot<MyContext>) => {
-  app.use(
-    TELEGRAM_WEBHOOK_PATH,
-    webhookCallback(bot, 'express', {
-      secretToken: config.telegram.secretKey || undefined,
-    }),
-  );
+  app.use(TELEGRAM_WEBHOOK_PATH, webhookCallback(bot, 'express'));
 };
 
 export const activateTelegramWebhook = async (bot: Bot<MyContext>) => {
   const webhookUrl = `${config.apiUrl.replace(/\/$/, '')}${TELEGRAM_WEBHOOK_PATH}`;
-  await bot.api.setWebhook(webhookUrl, {
-    secret_token: config.telegram.secretKey || undefined,
-    drop_pending_updates: true,
-  });
+  await bot.api.setWebhook(webhookUrl, { drop_pending_updates: false });
   return webhookUrl;
 };
