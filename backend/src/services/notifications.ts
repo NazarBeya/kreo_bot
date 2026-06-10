@@ -444,15 +444,36 @@ const sendNotification = async (job: NotificationJob) => {
     return;
   }
 
-  const text = notification.type === 'new_creative'
-    ? `New creative ${notification.payload.shortId || notification.payload.creativeId} for ${(notification.payload.geos || []).join(', ')}`
-    : notification.type === 'download'
-      ? String(notification.payload.text || `Creative ${notification.payload.shortId || notification.payload.creativeId} downloaded`)
-    : notification.type === 'resurrection'
-      ? String(notification.payload.text || `Creative ${notification.payload.shortId || notification.payload.creativeId} resurrected`)
-      : notification.type === 'burnout'
-        ? String(notification.payload.text || `Creative ${notification.payload.shortId || notification.payload.creativeId} is burning out`)
-      : String(notification.payload.text || 'Reminder');
+  let text = '';
+  switch (notification.type) {
+    case 'new_creative':
+      text = `Нове крео ${notification.payload.shortId || notification.payload.creativeId} для ${(notification.payload.geos || []).join(', ')}`;
+      break;
+    case 'download':
+      text = String(notification.payload.text || `Крео ${notification.payload.shortId || notification.payload.creativeId} завантажено`);
+      break;
+    case 'resurrection':
+      text = String(notification.payload.text || `Крео ${notification.payload.shortId || notification.payload.creativeId} воскресло`);
+      break;
+    case 'burnout':
+      text = String(notification.payload.text || `Крео ${notification.payload.shortId || notification.payload.creativeId} вигоріло`);
+      break;
+    case 'status_update':
+      text = String(notification.payload.text || `Оновлено статус для ${notification.payload.shortId || notification.payload.creativeId}`);
+      break;
+    case 'comment':
+      text = String(notification.payload.text || `Новий коментар під ${notification.payload.shortId || notification.payload.creativeId}`);
+      break;
+    case 'mention':
+      text = String(notification.payload.text || `Тебе згадали в коментарі`);
+      break;
+    case 'reminder':
+      text = String(notification.payload.text || `Нагадування`);
+      break;
+    default:
+      text = String(notification.payload.text || 'Нове сповіщення');
+      break;
+  }
   const lifecycleKeyboard = notification.type === 'reminder'
     && notification.payload?.reason === 'author_lifecycle_due'
     && notification.payload?.creativeId

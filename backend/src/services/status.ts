@@ -160,6 +160,14 @@ export const setCreativeStatus = async (input: SetStatusInput) => {
 
     await client.query('COMMIT');
 
+    const testingStatusLabels: Record<string, string> = {
+      testing: 'тестую',
+      working: 'працює',
+      fading: 'вигорає',
+      dead: 'помер',
+      resurrected: 'воскрес',
+    };
+
     if (authorId && authorId !== input.buyerId) {
       try {
         await createNotification(authorId, 'status_update', {
@@ -167,7 +175,7 @@ export const setCreativeStatus = async (input: SetStatusInput) => {
           shortId,
           status: input.status,
           geoCode: input.geoCode,
-          text: `${buyerName} поставив «${input.status}» на ${shortId} (${input.geoCode})`,
+          text: `${buyerName} поставив «${testingStatusLabels[input.status] || input.status}» на ${shortId} (${input.geoCode})`,
         });
       } catch (notificationError) {
         logger.error(notificationError, 'Error sending status update notification');

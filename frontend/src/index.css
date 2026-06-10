@@ -247,18 +247,18 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
 .watermarks span {
   position: absolute;
   z-index: 1;
-  color: rgba(255,255,255,.31);
-  font-size: 24px;
+  color: rgba(255,255,255,.16);
+  font-size: 14px;
   letter-spacing: .04em;
   transform: rotate(-17deg);
 }
 
-.watermarks span:nth-child(1) { left: 14%; top: 15%; }
-.watermarks span:nth-child(2) { right: 13%; top: 14%; }
-.watermarks span:nth-child(3) { left: 14%; top: 49%; }
-.watermarks span:nth-child(4) { right: 13%; top: 49%; }
-.watermarks span:nth-child(5) { left: 14%; bottom: 12%; }
-.watermarks span:nth-child(6) { right: 13%; bottom: 12%; }
+.watermarks span:nth-child(1) { left: 10%; top: 12%; }
+.watermarks span:nth-child(2) { right: 10%; top: 26%; }
+.watermarks span:nth-child(3) { left: 10%; top: 48%; }
+.watermarks span:nth-child(4) { right: 10%; top: 62%; }
+.watermarks span:nth-child(5) { left: 10%; bottom: 20%; }
+.watermarks span:nth-child(6) { right: 10%; bottom: 8%; }
 
 .play-button {
   position: absolute;
@@ -1110,7 +1110,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
-.preland-field input {
+.preland-field input, .preland-field select {
   width: 100%;
   min-height: 74px;
   padding: 0 24px;
@@ -1121,6 +1121,10 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   font: inherit;
   font-size: 20px;
   outline: none;
+}
+.preland-field select option {
+  background: #1a1a1a;
+  color: #f2f1ee;
 }
 
 .upload-file-section { margin-top: 34px; }
@@ -1137,7 +1141,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   background: rgba(10, 11, 11, .82);
 }
 .upload-file-preview { position: relative; min-height: 360px; overflow: hidden; }
-.upload-file-preview .watermarks span { font-size: 21px; }
+.upload-file-preview .watermarks span { font-size: 14px; }
 .override-badge {
   position: absolute;
   z-index: 2;
@@ -1177,7 +1181,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
 .file-override-panel .upload-option-group { margin-top: 16px; }
 .file-override-panel .upload-option-group button { min-height: 32px; padding: 5px 11px; font-size: 12px; }
 .file-override-panel .preland-field { margin-top: 16px; }
-.file-override-panel .preland-field input { min-height: 42px; padding: 0 12px; font-size: 13px; }
+.file-override-panel .preland-field input, .file-override-panel .preland-field select { min-height: 42px; padding: 0 12px; font-size: 13px; }
 .file-override-panel .version-fields { gap: 10px; }
 .override-badge.status-success, .override-badge.status-duplicate { border: 1px solid #3e815e; color: #80e7a5; background: rgba(50, 130, 86, .24); }
 .override-badge.status-error { border: 1px solid #7b3c3c; color: #ff8c8c; background: rgba(130, 50, 50, .24); }
@@ -1283,7 +1287,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   .status-pill { top: 10px; right: 10px; gap: 6px; padding: 7px 8px; font-size: 9px; }
   .status-pill i { width: 9px; height: 9px; }
   .archive-badge { top: 10px; left: 10px; padding: 7px 8px; font-size: 9px; }
-  .watermarks span { font-size: 13px; }
+  .watermarks span { font-size: 11px; }
   .play-button { width: 50px; height: 50px; font-size: 11px; }
   .geo-list { left: 10px; bottom: 10px; gap: 4px; }
   .geo-list span { padding: 5px 7px; font-size: 11px; }
@@ -1393,7 +1397,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   .upload-file-section h2 { margin-bottom: 11px; }
   .upload-file-grid { gap: 12px; }
   .upload-file-preview { min-height: 250px; }
-  .upload-file-preview .watermarks span { font-size: 13px; }
+  .upload-file-preview .watermarks span { font-size: 11px; }
   .override-badge { top: 10px; left: 10px; padding: 6px 9px; font-size: 10px; }
   .upload-file-card > div:last-child { padding: 11px; }
   .upload-file-card strong { font-size: 12px; }
