@@ -73,6 +73,18 @@ If `/admin` still returns `Not Found` after a Blueprint sync, open `creative-bot
 |--------|-------------|--------|
 | `/*` | `/index.html` | Rewrite |
 
+## Bot Delivery On Render
+
+In production the backend uses a **Telegram webhook** (`POST /telegram/webhook`), not long polling. This avoids conflicts when local Docker was running with the same bot token.
+
+Required backend env:
+
+```env
+API_URL=https://creative-bot-backend.onrender.com
+```
+
+After deploy, health should report `"botMode": "webhook"` and Telegram webhook info should point to the backend URL.
+
 ## After Deploy
 
 Check backend health:

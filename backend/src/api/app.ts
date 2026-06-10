@@ -70,7 +70,9 @@ export const createApp = () => {
       checks,
       config: {
         miniAppUrlHttps: config.miniAppUrl.startsWith('https://'),
+        apiUrlHttps: config.apiUrl.startsWith('https://'),
         botTokenConfigured: Boolean(config.telegram.botToken),
+        botMode: config.env === 'production' && config.apiUrl.startsWith('https://') ? 'webhook' : 'polling',
       },
     });
   });
