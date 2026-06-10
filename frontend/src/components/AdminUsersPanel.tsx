@@ -23,6 +23,19 @@ export const AdminUsersPanel: React.FC = () => {
 
   useEffect(() => {
     void loadUsers();
+
+    const refreshOnVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadUsers();
+      }
+    };
+
+    document.addEventListener('visibilitychange', refreshOnVisible);
+    window.Telegram?.WebApp?.onEvent?.('activated', refreshOnVisible);
+
+    return () => {
+      document.removeEventListener('visibilitychange', refreshOnVisible);
+    };
   }, []);
 
   const whitelistUser = async () => {

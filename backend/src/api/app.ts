@@ -68,6 +68,10 @@ export const createApp = () => {
       status: healthy ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       checks,
+      config: {
+        miniAppUrlHttps: config.miniAppUrl.startsWith('https://'),
+        botTokenConfigured: Boolean(config.telegram.botToken),
+      },
     });
   });
 

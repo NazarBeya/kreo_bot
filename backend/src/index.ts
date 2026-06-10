@@ -20,6 +20,10 @@ const startServer = async () => {
       logger.info(`📡 API server started on http://0.0.0.0:${config.port}`);
       logger.info(`📍 Environment: ${config.env}`);
       logger.info(`🤖 Bot: @${config.telegram.botUsername}`);
+      logger.info(`🌐 MINI_APP_URL: ${config.miniAppUrl}`);
+      if (config.env === 'production' && !config.miniAppUrl.startsWith('https://')) {
+        logger.warn('MINI_APP_URL is not HTTPS — bot buttons and Mini App links will not work');
+      }
     });
 
     startNotificationWorker();

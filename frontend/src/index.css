@@ -1113,6 +1113,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
 .preland-field input, .preland-field select {
   width: 100%;
   min-height: 74px;
+  height: 74px;
   padding: 0 24px;
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 9px;
@@ -1121,6 +1122,16 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   font: inherit;
   font-size: 20px;
   outline: none;
+  box-sizing: border-box;
+}
+.preland-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23686868' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 24px center;
+  padding-right: 48px;
 }
 .preland-field select option {
   background: #1a1a1a;
@@ -1392,7 +1403,17 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   .upload-option-group h3, .preland-field span { margin-bottom: 8px; font-size: 11px; }
   .upload-option-group > div { gap: 8px; }
   .upload-option-group button { min-height: 36px; padding: 6px 14px; font-size: 14px; }
-  .preland-field input { min-height: 52px; padding: 0 16px; border-radius: 7px; font-size: 14px; }
+  .preland-field input, .preland-field select {
+    min-height: 52px;
+    height: 52px;
+    padding: 0 16px;
+    border-radius: 7px;
+    font-size: 14px;
+  }
+  .preland-field select {
+    background-position: right 16px center;
+    padding-right: 40px;
+  }
   .upload-file-section { margin-top: 24px; }
   .upload-file-section h2 { margin-bottom: 11px; }
   .upload-file-grid { gap: 12px; }

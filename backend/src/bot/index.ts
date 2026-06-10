@@ -118,7 +118,15 @@ bot.command('help', async (ctx) => {
 
 bot.command('settings', async (ctx) => {
   const user = await requireWhitelistedUser(ctx);
-  if (!user || !config.miniAppUrl.startsWith('https://')) {
+  if (!user) {
+    return;
+  }
+
+  if (!config.miniAppUrl.startsWith('https://')) {
+    await ctx.reply(
+      '⚠️ Mini App недоступний: на бекенді не налаштовано MINI_APP_URL з HTTPS.\n\n' +
+      'Адміну Render: Environment → MINI_APP_URL=https://creative-bot-frontend.onrender.com'
+    );
     return;
   }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import apiClient from './api';
 import { AdminUsersPanel } from './components/AdminUsersPanel';
 import { getWatermarkedPreviewUrl } from './utils/preview';
@@ -190,6 +190,7 @@ interface TelegramWebApp {
     };
     expand: () => void;
     ready: () => void;
+    onEvent?: (eventType: string, callback: () => void) => void;
 }
 
 declare global {
@@ -629,6 +630,15 @@ const CreativeDetailsModal: React.FC<{
         };
 
         void loadDetails();
+
+        const refreshOnVisible = () => {
+            if (document.visibilityState === 'visible') {
+                void loadDetails();
+            }
+        };
+
+        document.addEventListener('visibilitychange', refreshOnVisible);
+        return () => document.removeEventListener('visibilitychange', refreshOnVisible);
     }, [creative.id]);
 
     const submitComment = async () => {
@@ -1850,7 +1860,7 @@ export const App: React.FC = () => {
         languages: [] as string[],
     });
 
-    const loadAppData = async (
+    const buildCatalogParams = (
         nextArchiveMode = archiveMode,
         nextSort = sortMode,
         nextQuery = query,
@@ -1875,12 +1885,47 @@ export const App: React.FC = () => {
         if (nextQuery.trim()) {
             catalogParams.set('q', nextQuery.trim());
         }
+        return catalogParams;
+    };
 
-        const [catalogResponse, activityResponse, bookmarksResponse, profileResponse, referenceResponse] = await Promise.all([
+    const fetchFeed = async () => {
+        const response = await apiClient.get('/api/app/activity/week');
+        setFeedItems(response.data.data);
+    };
+
+    const fetchProfile = async () => {
+        const response = await apiClient.get('/api/app/profile');
+        setProfile(response.data.data);
+    };
+
+    const fetchReference = async () => {
+        const response = await apiClient.get('/api/app/reference');
+        setReferenceLists(response.data.data);
+    };
+
+    const fetchBookmarks = async () => {
+        const response = await apiClient.get('/api/app/bookmarks');
+        const bookmarks = response.data.data.map(normalizeCreative);
+        const bookmarkIds = new Set(bookmarks.map((creative: CreativeCard) => creative.id));
+        setBookmarkCreatives(bookmarks.map((creative: CreativeCard) => ({ ...creative, bookmarked: true })));
+        setCreatives((current) => current.map((item) => ({
+            ...item,
+            bookmarked: bookmarkIds.has(item.id),
+        })));
+    };
+
+    const fetchCatalog = async (
+        nextArchiveMode = archiveMode,
+        nextSort = sortMode,
+        nextQuery = query,
+        nextGeo = activeGeo,
+        nextAngle = activeAngle,
+        nextStatus = activeStatus,
+    ) => {
+        const catalogParams = buildCatalogParams(nextArchiveMode, nextSort, nextQuery, nextGeo, nextAngle, nextStatus);
+        const [catalogResponse, bookmarksResponse, referenceResponse] = await Promise.all([
             apiClient.get(`/api/creatives?${catalogParams.toString()}`),
-            apiClient.get('/api/app/activity/week'),
             apiClient.get('/api/app/bookmarks'),
-            apiClient.get('/api/app/profile'),
             apiClient.get('/api/app/reference'),
         ]);
         const bookmarks = bookmarksResponse.data.data.map(normalizeCreative);
@@ -1891,12 +1936,52 @@ export const App: React.FC = () => {
         }));
 
         setCreatives(loaded);
-        setFeedItems(activityResponse.data.data);
         setBookmarkCreatives(bookmarks.map((creative: CreativeCard) => ({ ...creative, bookmarked: true })));
-        setProfile(profileResponse.data.data);
         setTotal(catalogResponse.data.pagination.total);
         setReferenceLists(referenceResponse.data.data);
     };
+
+    const loadAppData = async (
+        nextArchiveMode = archiveMode,
+        nextSort = sortMode,
+        nextQuery = query,
+        nextGeo = activeGeo,
+        nextAngle = activeAngle,
+        nextStatus = activeStatus,
+    ) => {
+        await Promise.all([
+            fetchCatalog(nextArchiveMode, nextSort, nextQuery, nextGeo, nextAngle, nextStatus),
+            fetchFeed(),
+            fetchProfile(),
+        ]);
+    };
+
+    const refreshForScreen = async (screen: AppScreen) => {
+        switch (screen) {
+            case 'feed':
+                await fetchFeed();
+                break;
+            case 'bookmarks':
+                await fetchBookmarks();
+                break;
+            case 'profile':
+                await fetchProfile();
+                break;
+            case 'upload':
+                await Promise.all([fetchProfile(), fetchReference()]);
+                break;
+            case 'catalog':
+            default:
+                await fetchCatalog();
+                break;
+        }
+    };
+
+    const activeScreenRef = useRef(activeScreen);
+    activeScreenRef.current = activeScreen;
+    const refreshForScreenRef = useRef(refreshForScreen);
+    refreshForScreenRef.current = refreshForScreen;
+    const initialScreenLoaded = useRef(false);
 
     const loadAdminData = async (moderationStatus = adminModerationStatus) => {
         const [dashboardResponse, analyticsResponse, buyersResponse, anglesResponse, settingsResponse, moderationResponse] = await Promise.all([
@@ -2108,6 +2193,64 @@ export const App: React.FC = () => {
 
         return () => clearTimeout(reload);
     }, [sortMode, query, activeGeo, activeAngle, activeStatus, archiveMode, profile?.user.id]);
+
+    useEffect(() => {
+        if (!profile) {
+            return;
+        }
+        if (!initialScreenLoaded.current) {
+            initialScreenLoaded.current = true;
+            return;
+        }
+        void refreshForScreenRef.current(activeScreen);
+    }, [activeScreen, profile?.user.id]);
+
+    useEffect(() => {
+        if (!profile) {
+            return;
+        }
+
+        const refreshOnVisible = () => {
+            if (document.visibilityState === 'visible') {
+                void refreshForScreenRef.current(activeScreenRef.current);
+            }
+        };
+
+        document.addEventListener('visibilitychange', refreshOnVisible);
+        window.Telegram?.WebApp?.onEvent?.('activated', refreshOnVisible);
+
+        return () => {
+            document.removeEventListener('visibilitychange', refreshOnVisible);
+        };
+    }, [profile?.user.id]);
+
+    useEffect(() => {
+        if (activeScreen !== 'feed' || !profile) {
+            return;
+        }
+
+        const interval = setInterval(() => void fetchFeed(), 30000);
+        return () => clearInterval(interval);
+    }, [activeScreen, profile?.user.id]);
+
+    useEffect(() => {
+        if (!isAdminPath || loading) {
+            return;
+        }
+
+        const refreshAdmin = () => {
+            if (document.visibilityState === 'visible') {
+                void loadAdminData();
+            }
+        };
+
+        document.addEventListener('visibilitychange', refreshAdmin);
+        window.Telegram?.WebApp?.onEvent?.('activated', refreshAdmin);
+
+        return () => {
+            document.removeEventListener('visibilitychange', refreshAdmin);
+        };
+    }, [isAdminPath, loading, adminModerationStatus]);
 
     if (!isTelegramMiniApp) {
         return (
