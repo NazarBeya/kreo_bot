@@ -39,9 +39,9 @@ const startServer = async () => {
         return;
       }
 
-      try {
-        await setupBotMenu();
+      void setupBotMenu();
 
+      try {
         if (useProductionWebhook()) {
           const webhookUrl = await activateTelegramWebhook(bot);
           const webhookInfo = await bot.api.getWebhookInfo();

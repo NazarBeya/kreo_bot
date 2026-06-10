@@ -10,17 +10,21 @@ import { query } from '../db/pool.js';
 export const bot = new Bot<MyContext>(config.telegram.botToken);
 
 export const setupBotMenu = async () => {
-  await bot.api.setMyCommands([
-    { command: 'start', description: 'Головне меню' },
-    { command: 'upload', description: 'Залити крео' },
-    { command: 'search', description: 'Знайти крео' },
-    { command: 'settings', description: 'Налаштування' },
-    { command: 'admin', description: 'Адмін-панель (lead/admin)' },
-    { command: 'help', description: 'Допомога' },
-  ]);
-  await bot.api.setChatMenuButton({
-    menu_button: { type: 'commands' },
-  });
+  try {
+    await bot.api.setMyCommands([
+      { command: 'start', description: 'Головне меню' },
+      { command: 'upload', description: 'Залити крео' },
+      { command: 'search', description: 'Знайти крео' },
+      { command: 'settings', description: 'Налаштування' },
+      { command: 'admin', description: 'Адмін-панель (lead/admin)' },
+      { command: 'help', description: 'Допомога' },
+    ]);
+    await bot.api.setChatMenuButton({
+      menu_button: { type: 'commands' },
+    });
+  } catch (error) {
+    logger.warn(error, 'Failed to update bot menu (non-fatal, bot will still run)');
+  }
 };
 
 bot.use(session({
