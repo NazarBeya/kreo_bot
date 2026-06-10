@@ -238,7 +238,7 @@ export const searchCreatives = async (
 
     let whereConditions = [
       archivedOnly ? 'c.is_archived = true' : 'c.is_archived = false',
-      "c.moderation_status = 'approved'",
+      "c.moderation_status <> 'rejected'",
     ];
 
     if (status) {

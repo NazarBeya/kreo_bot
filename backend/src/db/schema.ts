@@ -23,7 +23,7 @@ const defaultAdminSettings = [
   ['auto_archive_dead_days', 30],
   ['optional_metadata_reminder_days', 7],
   ['author_lifecycle_reminder_days', 14],
-  ['moderation_enabled', true],
+  ['moderation_enabled', false],
 ] as const;
 
 const updateCheckConstraint = async (table: string, constraint: string, definition: string) => {
@@ -101,7 +101,8 @@ export const ensureOperationalSchema = async () => {
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS author_comment TEXT NULL');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(32) NOT NULL DEFAULT \'pending_review\'');
   await query("ALTER TABLE creatives ALTER COLUMN moderation_status SET DEFAULT 'pending_review'");
-  await query("UPDATE admin_settings SET value = 'true'::jsonb WHERE key = 'moderation_enabled' AND value = 'false'::jsonb");
+  await query("UPDATE admin_settings SET value = 'false'::jsonb WHERE key = 'moderation_enabled'");
+  await query("UPDATE creatives SET moderation_status = 'approved', moderated_at = NOW() WHERE moderation_status = 'pending_review'");
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS author_lifecycle_status VARCHAR(32) NOT NULL DEFAULT \'actual\'');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS author_lifecycle_updated_at TIMESTAMP NOT NULL DEFAULT NOW()');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS moderated_by UUID REFERENCES users(id) ON DELETE SET NULL');
