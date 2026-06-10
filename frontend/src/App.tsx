@@ -244,8 +244,30 @@ const normalizeCreative = (creative: Record<string, any>, index: number): Creati
     tone: tones[index % tones.length],
 });
 
-const relativeDate = (isoDate: string) => {
-    const hours = Math.max(1, Math.round((Date.now() - new Date(isoDate).getTime()) / 3_600_000));
+const relativeDate = (isoDate: any) => {
+    if (!isoDate) {
+        return 'щойно';
+    }
+
+    let parsedDate: Date;
+    if (isoDate instanceof Date) {
+        parsedDate = isoDate;
+    } else if (typeof isoDate === 'number') {
+        parsedDate = new Date(isoDate);
+    } else {
+        let dateStr = String(isoDate).trim();
+        if (dateStr.includes(' ') && !dateStr.includes('T')) {
+            dateStr = dateStr.replace(' ', 'T');
+        }
+        parsedDate = new Date(dateStr);
+    }
+
+    const timeMs = parsedDate.getTime();
+    if (isNaN(timeMs)) {
+        return 'щойно';
+    }
+
+    const hours = Math.max(1, Math.round((Date.now() - timeMs) / 3_600_000));
 
     if (hours < 24) {
         return `${hours} год тому`;

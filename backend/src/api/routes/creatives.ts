@@ -345,7 +345,7 @@ creativeRouter.post(
       if (files.length === 0 && telegramUploadSessionId) {
         const session = await getTelegramUploadSession(telegramUploadSessionId);
 
-        if (!session || session.telegramId !== req.user.telegram_id) {
+        if (!session || String(session.telegramId) !== String(req.user.telegram_id)) {
           return res.status(404).json({ error: 'Upload session not found' });
         }
 

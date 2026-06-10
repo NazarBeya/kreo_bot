@@ -90,10 +90,17 @@ bot.command('start', async (ctx) => {
     return;
   }
 
-  await ctx.reply(
-    'Привіт! Я бот команди для управління крео.\n\nОбери дію нижче або скористайся меню команд зліва.',
-    { reply_markup: mainMenuKeyboard() }
-  );
+  const keyboard = mainMenuKeyboard();
+  if (keyboard) {
+    await ctx.reply(
+      'Привіт! Я бот команди для управління крео.\n\nОбери дію нижче або скористайся меню команд зліва.',
+      { reply_markup: keyboard }
+    );
+  } else {
+    await ctx.reply(
+      'Привіт! Я бот команди для управління крео.\n\nСкористайся меню команд зліва.'
+    );
+  }
 });
 
 bot.command('help', async (ctx) => {

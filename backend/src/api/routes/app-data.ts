@@ -82,7 +82,7 @@ appDataRouter.get('/upload-sessions/:id', requireAuth, async (req: Request, res:
   try {
     const session = await getTelegramUploadSession(req.params.id);
 
-    if (!session || session.telegramId !== req.user.telegram_id) {
+    if (!session || String(session.telegramId) !== String(req.user.telegram_id)) {
       return res.status(404).json({ error: 'Upload session not found' });
     }
 
