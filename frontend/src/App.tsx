@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from './api';
 import { AdminUsersPanel } from './components/AdminUsersPanel';
-import { CreativeStatusPanel } from './components/CreativeStatusPanel';
 import { getWatermarkedPreviewUrl } from './utils/preview';
 
 type CreativeStatus = 'new' | 'working' | 'fading' | 'dead';
@@ -285,7 +284,7 @@ const statusLabels: Record<CreativeStatus, string> = {
 
 const navItems = [
     ['▦', 'каталог'],
-    ['ϟ', 'стрічка'],
+    ['⚡', 'стрічка'],
     ['+', 'залити'],
     ['★', 'закладки'],
     ['◐', 'профіль'],
@@ -451,11 +450,11 @@ const BottomNav: React.FC<{ activeScreen: AppScreen; onNavigate: (screen: AppScr
                 ? 'feed'
                 : index === 2
                     ? 'upload'
-                : index === 3
-                    ? 'bookmarks'
-                    : index === 4
-                        ? 'profile'
-                        : 'catalog';
+                    : index === 3
+                        ? 'bookmarks'
+                        : index === 4
+                            ? 'profile'
+                            : 'catalog';
             const isActive = screen === activeScreen;
 
             return (
@@ -481,34 +480,34 @@ const CreativePreview: React.FC<{
     viewerLabel,
     onOpen,
 }) => (
-    <article className="creative-card catalog-card" onClick={() => onOpen(creative)}>
-        <div
-            className={`creative-preview tone-${creative.tone}`}
-            style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
-        >
-            <span className={`status-pill status-${creative.status}`}>
-                <i />
-                {statusLabels[creative.status]}
-            </span>
-            {creative.isArchived && <span className="archive-badge">архів</span>}
-            <ViewerWatermarks viewerLabel={viewerLabel} />
-            {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
-            <div className="geo-list">
-                {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
+        <article className="creative-card catalog-card" onClick={() => onOpen(creative)}>
+            <div
+                className={`creative-preview tone-${creative.tone}`}
+                style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
+            >
+                <span className={`status-pill status-${creative.status}`}>
+                    <i />
+                    {statusLabels[creative.status]}
+                </span>
+                {creative.isArchived && <span className="archive-badge">архів</span>}
+                <ViewerWatermarks viewerLabel={viewerLabel} />
+                {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
+                <div className="geo-list">
+                    {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
+                </div>
             </div>
-        </div>
-        <div className="creative-info">
-            <div className="creative-meta">
-                <strong>{creative.shortId}</strong>
-                <span>{relativeDate(creative.createdAt)}</span>
+            <div className="creative-info">
+                <div className="creative-meta">
+                    <strong>{creative.shortId}</strong>
+                    <span>{relativeDate(creative.createdAt)}</span>
+                </div>
+                <div className="creative-meta secondary">
+                    <b>{creative.angles[0] || 'Без angle'}</b>
+                    <span>{creative.author}</span>
+                </div>
             </div>
-            <div className="creative-meta secondary">
-                <b>{creative.angles[0] || 'Без angle'}</b>
-                <span>{creative.author}</span>
-            </div>
-        </div>
-    </article>
-);
+        </article>
+    );
 
 const BookmarkPreview: React.FC<{
     creative: CreativeCard;
@@ -519,34 +518,34 @@ const BookmarkPreview: React.FC<{
     viewerLabel,
     onOpen,
 }) => (
-    <article className="creative-card bookmark-card" onClick={() => onOpen(creative)}>
-        <div
-            className={`creative-preview tone-${creative.tone}`}
-            style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
-        >
-            <span className={`status-pill status-${creative.status}`}>
-                <i />
-                {statusLabels[creative.status]}
-            </span>
-            <ViewerWatermarks viewerLabel={viewerLabel} />
-            {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
-            <div className="geo-list">
-                {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
+        <article className="creative-card bookmark-card" onClick={() => onOpen(creative)}>
+            <div
+                className={`creative-preview tone-${creative.tone}`}
+                style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
+            >
+                <span className={`status-pill status-${creative.status}`}>
+                    <i />
+                    {statusLabels[creative.status]}
+                </span>
+                <ViewerWatermarks viewerLabel={viewerLabel} />
+                {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
+                <div className="geo-list">
+                    {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
+                </div>
             </div>
-        </div>
-        <div className="creative-info">
-            <div className="creative-meta">
-                <strong>{creative.shortId}</strong>
-                <span>{relativeDate(creative.createdAt)}</span>
+            <div className="creative-info">
+                <div className="creative-meta">
+                    <strong>{creative.shortId}</strong>
+                    <span>{relativeDate(creative.createdAt)}</span>
+                </div>
+                <div className="creative-meta secondary">
+                    <b>{creative.angles[0] || 'Без angle'}</b>
+                    <span>{creative.author}</span>
+                </div>
+                <div className="bookmark-tests">тестують: {creative.testerCount}</div>
             </div>
-            <div className="creative-meta secondary">
-                <b>{creative.angles[0] || 'Без angle'}</b>
-                <span>{creative.author}</span>
-            </div>
-            <div className="bookmark-tests">тестують: {creative.testerCount}</div>
-        </div>
-    </article>
-);
+        </article>
+    );
 
 const CreativeDetailsModal: React.FC<{
     creative: CreativeCard;
@@ -651,8 +650,8 @@ const CreativeDetailsModal: React.FC<{
 
     return (
         <div className="details-backdrop" onClick={onClose}>
-            <article 
-                className="details-modal" 
+            <article
+                className="details-modal"
                 onClick={(event) => event.stopPropagation()}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -662,222 +661,211 @@ const CreativeDetailsModal: React.FC<{
                     transition: touchTranslation === 0 ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
                 }}
             >
-            <div className="details-handle" />
-            <div
-                className={`details-preview tone-${creative.tone}`}
-                style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
-            >
-                <span className={`status-pill status-${creative.status}`}>
-                    <i />
-                    {statusLabels[creative.status]}
-                </span>
-                {creative.isArchived && <span className="archive-badge">архів</span>}
-                <ViewerWatermarks viewerLabel={viewerLabel} />
-                <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
-                <div className="geo-list">
-                    {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
-                </div>
-            </div>
-            <section className="details-content">
-                <div className="details-title-line">
-                    <strong>{creative.shortId}</strong>
-                    <span>залив {creative.author} · {relativeDate(creative.createdAt)}</span>
-                </div>
-                <h2>{creative.angles[0] || 'Без angle'} · {creative.geos.join(' · ') || 'GEO н/д'}</h2>
-                <p className={`details-status status-${creative.status}`}>
-                    <i />
-                    {statusLabels[creative.status]}
-                    <span>· {testerCount} тестери</span>
-                </p>
-                {canManageLifecycle && (
-                    <div className="lifecycle-actions">
-                        <button
-                            className={creative.authorLifecycleStatus === 'actual' ? 'active' : ''}
-                            onClick={() => void onLifecycleUpdate(creative, 'actual')}
-                        >
-                            актуальний
-                        </button>
-                        <button
-                            className={creative.authorLifecycleStatus === 'fading' ? 'active warning' : 'warning'}
-                            onClick={() => void onLifecycleUpdate(creative, 'fading')}
-                        >
-                            вигорає
-                        </button>
-                        <button
-                            className={creative.authorLifecycleStatus === 'not_running' ? 'active muted' : 'muted'}
-                            onClick={() => void onLifecycleUpdate(creative, 'not_running')}
-                        >
-                            не лию
-                        </button>
+                <div className="details-handle" />
+                <div
+                    className={`details-preview tone-${creative.tone}`}
+                    style={{ backgroundImage: `url(${getWatermarkedPreviewUrl(creative.id)})` }}
+                >
+                    <span className={`status-pill status-${creative.status}`}>
+                        <i />
+                        {statusLabels[creative.status]}
+                    </span>
+                    {creative.isArchived && <span className="archive-badge">архів</span>}
+                    <ViewerWatermarks viewerLabel={viewerLabel} />
+                    <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
+                    <div className="geo-list">
+                        {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
                     </div>
-                )}
-                <div className="details-actions">
-                    <button
-                        className="download"
-                        onClick={async () => {
-                            const response = await apiClient.get(`/api/creatives/${creative.id}/download`);
-                            window.open(response.data.url, '_blank');
-                            setHasDownloaded(true);
-                        }}
-                    >
-                        📥 завантажити
-                    </button>
-                    <button onClick={() => onBookmarkToggle(creative)}>
-                        {creative.bookmarked ? '🔖 в закладках' : '🔖 додати'}
-                    </button>
-                    {creative.isArchived && (
-                        <button className="resurrect" onClick={() => void onResurrect(creative)}>
-                            ⚡ воскресити
-                        </button>
-                    )}
                 </div>
-                {hasDownloaded && currentUser?.role !== 'designer' && (
-                    <CreativeStatusPanel
-                        creativeId={creative.id}
-                        geos={creative.geos}
-                        onUpdated={() => {
-                            void apiClient.get(`/api/status/${creative.id}`).then((response) => {
-                                setTesters(response.data.data);
-                            });
-                        }}
-                    />
-                )}
-                <div className="details-tabs">
-                    <button className={activeTab === 'info' ? 'active' : ''} onClick={() => setActiveTab('info')}>інфо</button>
-                    <button className={activeTab === 'versions' ? 'active' : ''} onClick={() => setActiveTab('versions')}>
-                        версії {versions.length || ''}
-                    </button>
-                    <button className={activeTab === 'testers' ? 'active' : ''} onClick={() => setActiveTab('testers')}>
-                        тестери {testerCount}
-                    </button>
-                    <button className={activeTab === 'comments' ? 'active' : ''} onClick={() => setActiveTab('comments')}>
-                        коментарі {commentCount}
-                    </button>
-                </div>
-                {activeTab === 'info' && <div className="details-info">
-                    <DetailField label="гео">{creative.geos.join(', ')}</DetailField>
-                    <DetailField label="angle">{creative.angles[0]?.toLowerCase() || 'не вказано'}</DetailField>
-                    <DetailField label="преленд">{creative.preland || 'не вказано'}</DetailField>
-                    <DetailField label="мова крео">{creative.language || 'не вказано'}</DetailField>
-                    <DetailField label="коментар автора">{creative.authorComment || 'без коментаря'}</DetailField>
-                    <DetailField label="версія">{creative.parentShortId ? `версія від ${creative.parentShortId}` : 'оригінал'}</DetailField>
-                    {versions.length > 0 && (
-                        <section className="version-strip">
-                            {versions.map((version) => (
-                                <button
-                                    className={version.id === creative.id ? 'active' : ''}
-                                    key={version.id}
-                                    onClick={() => setActiveTab('versions')}
-                                >
-                                    v{version.version_number}
-                                </button>
-                            ))}
-                        </section>
-                    )}
-                    <section className="technical-info">
-                        <h3>технічно</h3>
-                        <div>
-                            <DetailField label="хеш">{creative.fileHash ? `${creative.fileHash.slice(0, 8)}...` : 'невідомо'}</DetailField>
-                            <DetailField label="розмір">{creative.sizeBytes ? formatFileSize(creative.sizeBytes) : 'невідомо'}</DetailField>
-                            <DetailField label="тривалість">{formatDuration(creative.durationSec)}</DetailField>
-                            <DetailField label="формат">{creative.width && creative.height ? `${creative.width}:${creative.height}` : 'невідомо'} / {creative.mimeType || creative.fileType}</DetailField>
+                <section className="details-content">
+                    <div className="details-title-line">
+                        <strong>{creative.shortId}</strong>
+                        <span>залив {creative.author} · {relativeDate(creative.createdAt)}</span>
+                    </div>
+                    <h2>{creative.angles[0] || 'Без angle'} · {creative.geos.join(' · ') || 'GEO н/д'}</h2>
+                    <p className={`details-status status-${creative.status}`}>
+                        <i />
+                        {statusLabels[creative.status]}
+                        <span>· {testerCount} тестери</span>
+                    </p>
+                    {canManageLifecycle && (
+                        <div className="lifecycle-actions">
+                            <button
+                                className={creative.authorLifecycleStatus === 'actual' ? 'active' : ''}
+                                onClick={() => void onLifecycleUpdate(creative, 'actual')}
+                            >
+                                актуальний
+                            </button>
+                            <button
+                                className={creative.authorLifecycleStatus === 'fading' ? 'active warning' : 'warning'}
+                                onClick={() => void onLifecycleUpdate(creative, 'fading')}
+                            >
+                                вигорає
+                            </button>
+                            <button
+                                className={creative.authorLifecycleStatus === 'not_running' ? 'active muted' : 'muted'}
+                                onClick={() => void onLifecycleUpdate(creative, 'not_running')}
+                            >
+                                не лию
+                            </button>
                         </div>
-                    </section>
-                </div>}
-                {activeTab === 'versions' && (
-                    <div className="version-list">
-                        {detailsLoading ? (
-                            <p className="state-message">завантаження версій...</p>
-                        ) : versions.length ? (
-                            versions.map((version) => (
-                                <article className={version.id === creative.id ? 'active' : ''} key={version.id}>
-                                    <div>
-                                        <strong>v{version.version_number} · {version.short_id}</strong>
-                                        <small>{version.parent_short_id ? `від ${version.parent_short_id}` : 'оригінал'} · {relativeDate(version.created_at)}</small>
-                                    </div>
-                                    <span>{statusLabels[version.aggregated_status] || version.aggregated_status}</span>
-                                    <p>{version.geos.filter(Boolean).join(' · ') || 'geo'} · {version.angles.filter(Boolean).join(' · ') || 'angle'}</p>
-                                </article>
-                            ))
-                        ) : (
-                            <div className="details-empty">
-                                <h3>версій ще немає</h3>
-                                <p>завантаж v2/v3 з parent CR-ID</p>
-                            </div>
+                    )}
+                    <div className="details-actions">
+                        <button
+                            className={`download ${hasDownloaded ? 'downloaded' : ''}`}
+                            onClick={async () => {
+                                const response = await apiClient.get(`/api/creatives/${creative.id}/download`);
+                                window.open(response.data.url, '_blank');
+                                setHasDownloaded(true);
+                            }}
+                        >
+                            {hasDownloaded ? '📥 завантажено' : '📥 завантажити'}
+                        </button>
+                        <button onClick={() => onBookmarkToggle(creative)}>
+                            {creative.bookmarked ? '🔖 в закладках' : '🔖 додати'}
+                        </button>
+                        {creative.isArchived && (
+                            <button className="resurrect" onClick={() => void onResurrect(creative)}>
+                                ⚡ воскресити
+                            </button>
                         )}
                     </div>
-                )}
-                {activeTab === 'testers' && (
-                    detailsLoading ? (
-                        <p className="state-message">завантаження тестерів...</p>
-                    ) : testers.length ? (
-                        <div className="tester-list">
-                            {testers.map((tester) => {
-                                const tone = tester.status === 'fading' || tester.roi_category === 'yellow' ? 'fading' : 'success';
-
-                                return (
-                                <article className="tester-card" key={tester.id}>
-                                    <div className="tester-topline">
-                                        <div>
-                                            <i className={`tester-dot ${tone}`} />
-                                            <strong>{tester.username ? `@${tester.username}` : tester.buyer_name || 'баєр'}</strong>
-                                            <small>{tester.geo_code}</small>
-                                        </div>
-                                        <time>{relativeDate(tester.updated_at)}</time>
-                                    </div>
-                                    <p className={`tester-result ${tone}`}>
-                                        {statusText[tester.status] || tester.status}
-                                        <span>· {tester.test_volume || 'обсяг н/д'} ·</span>
-                                        <i />
-                                        <span>{tester.roi_category ? roiText[tester.roi_category] : 'результат н/д'}</span>
-                                    </p>
-                                </article>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="details-empty">
-                            <h3>ще ніхто не тестував</h3>
-                            <p>будь першим — натисни "Завантажити"</p>
-                        </div>
-                    )
-                )}
-                {activeTab === 'comments' && (
-                    <div className="details-comments">
-                        {detailsLoading ? (
-                            <p className="state-message">завантаження коментарів...</p>
-                        ) : comments.length ? (
-                            <div className="comment-list">
-                                {comments.map((comment) => (
-                                    <article className={`comment-card ${comment.parent_id ? 'reply' : ''}`} key={comment.id}>
-                                        <div>
-                                            <strong>{comment.username ? `@${comment.username}` : comment.display_name || 'користувач'}</strong>
-                                            <time>{relativeDate(comment.created_at)}</time>
-                                            <button onClick={() => setReplyToId(comment.id)}>відповісти</button>
-                                        </div>
-                                        <p>{comment.text}</p>
-                                    </article>
+                    <div className="details-tabs">
+                        <button className={activeTab === 'info' ? 'active' : ''} onClick={() => setActiveTab('info')}>інфо</button>
+                        <button className={activeTab === 'versions' ? 'active' : ''} onClick={() => setActiveTab('versions')}>
+                            версії {versions.length || ''}
+                        </button>
+                        <button className={activeTab === 'testers' ? 'active' : ''} onClick={() => setActiveTab('testers')}>
+                            тестери {testerCount}
+                        </button>
+                        <button className={activeTab === 'comments' ? 'active' : ''} onClick={() => setActiveTab('comments')}>
+                            коментарі {commentCount}
+                        </button>
+                    </div>
+                    {activeTab === 'info' && <div className="details-info">
+                        <DetailField label="гео">{creative.geos.join(', ')}</DetailField>
+                        <DetailField label="angle">{creative.angles[0]?.toLowerCase() || 'не вказано'}</DetailField>
+                        <DetailField label="преленд">{creative.preland || 'не вказано'}</DetailField>
+                        <DetailField label="мова крео">{creative.language || 'не вказано'}</DetailField>
+                        <DetailField label="коментар автора">{creative.authorComment || 'без коментаря'}</DetailField>
+                        <DetailField label="версія">{creative.parentShortId ? `версія від ${creative.parentShortId}` : 'оригінал'}</DetailField>
+                        {versions.length > 0 && (
+                            <section className="version-strip">
+                                {versions.map((version) => (
+                                    <button
+                                        className={version.id === creative.id ? 'active' : ''}
+                                        key={version.id}
+                                        onClick={() => setActiveTab('versions')}
+                                    >
+                                        v{version.version_number}
+                                    </button>
                                 ))}
+                            </section>
+                        )}
+                        <section className="technical-info">
+                            <h3>технічно</h3>
+                            <div>
+                                <DetailField label="хеш">{creative.fileHash ? `${creative.fileHash.slice(0, 8)}...` : 'невідомо'}</DetailField>
+                                <DetailField label="розмір">{creative.sizeBytes ? formatFileSize(creative.sizeBytes) : 'невідомо'}</DetailField>
+                                <DetailField label="тривалість">{formatDuration(creative.durationSec)}</DetailField>
+                                <DetailField label="формат">{creative.width && creative.height ? `${creative.width}:${creative.height}` : 'невідомо'} / {creative.mimeType || creative.fileType}</DetailField>
+                            </div>
+                        </section>
+                    </div>}
+                    {activeTab === 'versions' && (
+                        <div className="version-list">
+                            {detailsLoading ? (
+                                <p className="state-message">завантаження версій...</p>
+                            ) : versions.length ? (
+                                versions.map((version) => (
+                                    <article className={version.id === creative.id ? 'active' : ''} key={version.id}>
+                                        <div>
+                                            <strong>v{version.version_number} · {version.short_id}</strong>
+                                            <small>{version.parent_short_id ? `від ${version.parent_short_id}` : 'оригінал'} · {relativeDate(version.created_at)}</small>
+                                        </div>
+                                        <span>{statusLabels[version.aggregated_status] || version.aggregated_status}</span>
+                                        <p>{version.geos.filter(Boolean).join(' · ') || 'geo'} · {version.angles.filter(Boolean).join(' · ') || 'angle'}</p>
+                                    </article>
+                                ))
+                            ) : (
+                                <div className="details-empty">
+                                    <h3>версій ще немає</h3>
+                                    <p>завантаж v2/v3 з parent CR-ID</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {activeTab === 'testers' && (
+                        detailsLoading ? (
+                            <p className="state-message">завантаження тестерів...</p>
+                        ) : testers.length ? (
+                            <div className="tester-list">
+                                {testers.map((tester) => {
+                                    const tone = tester.status === 'fading' || tester.roi_category === 'yellow' ? 'fading' : 'success';
+
+                                    return (
+                                        <article className="tester-card" key={tester.id}>
+                                            <div className="tester-topline">
+                                                <div>
+                                                    <i className={`tester-dot ${tone}`} />
+                                                    <strong>{tester.username ? `@${tester.username}` : tester.buyer_name || 'баєр'}</strong>
+                                                    <small>{tester.geo_code}</small>
+                                                </div>
+                                                <time>{relativeDate(tester.updated_at)}</time>
+                                            </div>
+                                            <p className={`tester-result ${tone}`}>
+                                                {statusText[tester.status] || tester.status}
+                                                <span>· {tester.test_volume || 'обсяг н/д'} ·</span>
+                                                <i />
+                                                <span>{tester.roi_category ? roiText[tester.roi_category] : 'результат н/д'}</span>
+                                            </p>
+                                        </article>
+                                    );
+                                })}
                             </div>
                         ) : (
                             <div className="details-empty">
-                                <h3>тиша</h3>
-                                <p>стань першим хто щось напише</p>
+                                <h3>ще ніхто не тестував</h3>
+                                <p>будь першим — натисни "Завантажити"</p>
                             </div>
-                        )}
-                        <div className="comment-form">
-                            <input
-                                placeholder="написати коментар..."
-                                value={commentText}
-                                onChange={(event) => setCommentText(event.target.value)}
-                            />
-                            <button onClick={submitComment}>надіслати</button>
+                        )
+                    )}
+                    {activeTab === 'comments' && (
+                        <div className="details-comments">
+                            {detailsLoading ? (
+                                <p className="state-message">завантаження коментарів...</p>
+                            ) : comments.length ? (
+                                <div className="comment-list">
+                                    {comments.map((comment) => (
+                                        <article className={`comment-card ${comment.parent_id ? 'reply' : ''}`} key={comment.id}>
+                                            <div>
+                                                <strong>{comment.username ? `@${comment.username}` : comment.display_name || 'користувач'}</strong>
+                                                <time>{relativeDate(comment.created_at)}</time>
+                                                <button onClick={() => setReplyToId(comment.id)}>відповісти</button>
+                                            </div>
+                                            <p>{comment.text}</p>
+                                        </article>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="details-empty">
+                                    <h3>тиша</h3>
+                                    <p>стань першим хто щось напише</p>
+                                </div>
+                            )}
+                            <div className="comment-form">
+                                <input
+                                    placeholder="написати коментар..."
+                                    value={commentText}
+                                    onChange={(event) => setCommentText(event.target.value)}
+                                />
+                                <button onClick={submitComment}>надіслати</button>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </section>
-        </article>
-    </div>
+                    )}
+                </section>
+            </article>
+        </div>
     );
 };
 
@@ -1238,6 +1226,7 @@ const UploadScreen: React.FC<{
                         options={geoOptions}
                         selected={selectedGeos}
                         onToggle={(value) => toggleValue(value, selectedGeos, setSelectedGeos)}
+                        onCustomSelect={setSelectedGeos}
                     />
                     <UploadOptionGroup
                         label="angle ·"
@@ -1343,22 +1332,45 @@ const UploadOptionGroup: React.FC<{
     options: string[];
     selected: string[];
     onToggle: (value: string) => void;
-}> = ({ label, options, selected, onToggle }) => (
-    <section className="upload-option-group">
-        <h3>{label}</h3>
-        <div>
-            {options.map((option) => (
-                <button
-                    className={selected.includes(option) ? 'active' : ''}
-                    key={option}
-                    onClick={() => onToggle(option)}
-                >
-                    {option}
-                </button>
-            ))}
-        </div>
-    </section>
-);
+    onCustomSelect?: (selected: string[]) => void;
+}> = ({ label, options, selected, onToggle, onCustomSelect }) => {
+    const customValue = selected.filter((item) => !options.includes(item)).join(', ');
+
+    return (
+        <section className="upload-option-group">
+            <h3>{label}</h3>
+            <div>
+                {options.map((option) => (
+                    <button
+                        className={selected.includes(option) ? 'active' : ''}
+                        key={option}
+                        onClick={() => onToggle(option)}
+                    >
+                        {option}
+                    </button>
+                ))}
+            </div>
+            {onCustomSelect && (
+                <div className="custom-option-input">
+                    <input
+                        type="text"
+                        placeholder="інші гео через кому (напр. US, GB)"
+                        value={customValue}
+                        onChange={(e) => {
+                            const activeQuick = selected.filter((item) => options.includes(item));
+                            const newCustom = e.target.value
+                                .split(',')
+                                .map((s) => s.trim().toUpperCase())
+                                .filter(Boolean);
+                            const unique = Array.from(new Set([...activeQuick, ...newCustom]));
+                            onCustomSelect(unique);
+                        }}
+                    />
+                </div>
+            )}
+        </section>
+    );
+};
 
 const UploadPreview: React.FC<{
     file: UploadFileCard;
@@ -1397,6 +1409,7 @@ const UploadPreview: React.FC<{
                         options={geoOptions}
                         selected={file.geos}
                         onToggle={(value) => onToggleValue(value, 'geos')}
+                        onCustomSelect={(newGeos) => onUpdate(file.id, { geos: newGeos })}
                     />
                     <UploadOptionGroup
                         label="angle ·"
@@ -1570,12 +1583,12 @@ const AdminScreen: React.FC<{
                 </div>
 
                 <section className="admin-kpis">
-	                    {Object.entries(dashboard?.summary || {}).map(([key, value]) => (
-	                        <article key={key}>
-	                            <strong>{value}</strong>
-	                            <small>{humanizeKey(key)}</small>
-	                        </article>
-	                    ))}
+                    {Object.entries(dashboard?.summary || {}).map(([key, value]) => (
+                        <article key={key}>
+                            <strong>{value}</strong>
+                            <small>{humanizeKey(key)}</small>
+                        </article>
+                    ))}
                 </section>
 
                 <section className="admin-grid">
@@ -1633,9 +1646,9 @@ const AdminScreen: React.FC<{
 
                     <AdminPanel title="thresholds">
                         <div className="admin-settings">
-	                            {Object.entries(draftSettings).map(([key, value]) => (
-	                                <label key={key}>
-	                                    <span>{humanizeKey(key)}</span>
+                            {Object.entries(draftSettings).map(([key, value]) => (
+                                <label key={key}>
+                                    <span>{humanizeKey(key)}</span>
                                     {typeof value === 'boolean' ? (
                                         <button
                                             className={value ? 'active' : ''}
@@ -1836,7 +1849,6 @@ export const App: React.FC = () => {
         angles: defaultAngles,
         languages: [] as string[],
     });
-    const [topWeekCreatives, setTopWeekCreatives] = useState<CreativeCard[]>([]);
 
     const loadAppData = async (
         nextArchiveMode = archiveMode,
@@ -1864,13 +1876,12 @@ export const App: React.FC = () => {
             catalogParams.set('q', nextQuery.trim());
         }
 
-        const [catalogResponse, activityResponse, bookmarksResponse, profileResponse, referenceResponse, topWeekResponse] = await Promise.all([
+        const [catalogResponse, activityResponse, bookmarksResponse, profileResponse, referenceResponse] = await Promise.all([
             apiClient.get(`/api/creatives?${catalogParams.toString()}`),
             apiClient.get('/api/app/activity/week'),
             apiClient.get('/api/app/bookmarks'),
             apiClient.get('/api/app/profile'),
             apiClient.get('/api/app/reference'),
-            apiClient.get('/api/app/top/week'),
         ]);
         const bookmarks = bookmarksResponse.data.data.map(normalizeCreative);
         const bookmarkIds = new Set(bookmarks.map((creative: CreativeCard) => creative.id));
@@ -1885,7 +1896,6 @@ export const App: React.FC = () => {
         setProfile(profileResponse.data.data);
         setTotal(catalogResponse.data.pagination.total);
         setReferenceLists(referenceResponse.data.data);
-        setTopWeekCreatives(topWeekResponse.data.data.map((item: Record<string, any>, index: number) => normalizeCreative(item, index)));
     };
 
     const loadAdminData = async (moderationStatus = adminModerationStatus) => {
@@ -2192,15 +2202,15 @@ export const App: React.FC = () => {
                 </section>
                 <BottomNav activeScreen={activeScreen} onNavigate={setActiveScreen} />
                 {selectedCreative && (
-		                    <CreativeDetailsModal
-		                        creative={selectedCreative}
-		                        currentUser={profile?.user}
-		                        onClose={() => setSelectedCreative(null)}
-		                        onBookmarkToggle={toggleBookmark}
-		                        onCommentAdded={updateCommentCount}
-		                        onResurrect={resurrectCreative}
-		                        onLifecycleUpdate={updateCreativeLifecycle}
-		                    />
+                    <CreativeDetailsModal
+                        creative={selectedCreative}
+                        currentUser={profile?.user}
+                        onClose={() => setSelectedCreative(null)}
+                        onBookmarkToggle={toggleBookmark}
+                        onCommentAdded={updateCommentCount}
+                        onResurrect={resurrectCreative}
+                        onLifecycleUpdate={updateCreativeLifecycle}
+                    />
                 )}
             </main>
         );
@@ -2295,11 +2305,11 @@ export const App: React.FC = () => {
             <div className="noise" />
             <section className="catalog">
                 <header className="broadcast">mini app · живі дані API</header>
-	                <div className="catalog-toolbar">
-	                    <div className="heading-line">
-	                        <h1>каталог<span>.</span></h1>
-	                        <small>{archiveMode ? `${total} в архіві` : `${total} крео`}</small>
-	                    </div>
+                <div className="catalog-toolbar">
+                    <div className="heading-line">
+                        <h1>каталог<span>.</span></h1>
+                        <small>{archiveMode ? `${total} в архіві` : `${total} крео`}</small>
+                    </div>
                     <div className="search-line">
                         <input
                             value={query}
@@ -2307,19 +2317,19 @@ export const App: React.FC = () => {
                             placeholder="ID, angle, автор..."
                             aria-label="Пошук креативів"
                         />
-	                        <button
-	                            className={filtersOpen ? 'active' : ''}
-	                            onClick={() => setFiltersOpen((current) => !current)}
-	                        >
-	                            фільтр
-	                        </button>
-	                        <button
-	                            className={archiveMode ? 'active' : ''}
-	                            onClick={() => void toggleArchiveMode()}
-	                        >
-	                            архів
-	                        </button>
-	                    </div>
+                        <button
+                            className={filtersOpen ? 'active' : ''}
+                            onClick={() => setFiltersOpen((current) => !current)}
+                        >
+                            фільтр
+                        </button>
+                        <button
+                            className={archiveMode ? 'active' : ''}
+                            onClick={() => void toggleArchiveMode()}
+                        >
+                            архів
+                        </button>
+                    </div>
                     {filtersOpen && (
                         <div className="filter-panel">
                             <FilterGroup
@@ -2365,21 +2375,7 @@ export const App: React.FC = () => {
                     )}
                 </div>
 
-                {topWeekCreatives.length > 0 && !archiveMode && (
-                    <section className="top-week-strip">
-                        <h2>топ тижня</h2>
-                        <div className="creative-grid compact">
-                            {topWeekCreatives.slice(0, 6).map((creative) => (
-                                <CreativePreview
-                                    creative={creative}
-                                    key={`top-${creative.id}`}
-                                    viewerLabel={viewerLabel}
-                                    onOpen={setSelectedCreative}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                )}
+
 
                 <section className="creative-grid" aria-live="polite">
                     {loading && <p className="state-message">завантаження каталогу...</p>}
@@ -2399,17 +2395,17 @@ export const App: React.FC = () => {
             </section>
 
             <BottomNav activeScreen={activeScreen} onNavigate={setActiveScreen} />
-	            {selectedCreative && (
-		                <CreativeDetailsModal
-		                    creative={selectedCreative}
-		                    currentUser={profile?.user}
-		                    onClose={() => setSelectedCreative(null)}
-		                    onBookmarkToggle={toggleBookmark}
-		                    onCommentAdded={updateCommentCount}
-		                    onResurrect={resurrectCreative}
-		                    onLifecycleUpdate={updateCreativeLifecycle}
-		                />
-	            )}
+            {selectedCreative && (
+                <CreativeDetailsModal
+                    creative={selectedCreative}
+                    currentUser={profile?.user}
+                    onClose={() => setSelectedCreative(null)}
+                    onBookmarkToggle={toggleBookmark}
+                    onCommentAdded={updateCommentCount}
+                    onResurrect={resurrectCreative}
+                    onLifecycleUpdate={updateCreativeLifecycle}
+                />
+            )}
         </main>
     );
 };

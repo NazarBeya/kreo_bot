@@ -283,10 +283,10 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   background: linear-gradient(110deg, rgba(13,14,14,.96), rgba(20,20,20,.92));
 }
 .creative-meta { gap: 10px; }
-.creative-meta strong { letter-spacing: .06em; font-size: 18px; }
-.creative-meta span { color: #676767; }
+.creative-meta strong { letter-spacing: .06em; font-size: 18px; white-space: nowrap; }
+.creative-meta span { color: #676767; white-space: nowrap; }
 .creative-meta.secondary { margin-top: 12px; }
-.creative-meta.secondary b { overflow: hidden; font: inherit; font-size: 20px; text-overflow: ellipsis; }
+.creative-meta.secondary b { overflow: hidden; font: inherit; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
 
 .state-message { grid-column: 1 / -1; color: #aaa; text-align: center; }
 .state-message.error { color: #de7878; }
@@ -698,6 +698,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   text-transform: uppercase;
 }
 .details-actions .download { border-color: #ffd000; color: #111; background: #ffd000; font-weight: 600; }
+.details-actions .download.downloaded { border-color: rgba(255, 208, 0, .42); color: #ffd000; background: rgba(255, 208, 0, .06); }
 .details-actions .resurrect { border-color: rgba(84,230,152,.42); color: #54e698; }
 
 .details-tabs {
@@ -1085,6 +1086,24 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   font-size: 19px;
 }
 .upload-option-group button.active { border-color: #ffd000; color: #111; background: #ffd000; }
+.custom-option-input { margin-top: 12px; }
+.custom-option-input input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 7px;
+  color: #fff;
+  background: rgba(255,255,255,.02);
+  font-size: 16px;
+  box-sizing: border-box;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.custom-option-input input:focus {
+  outline: none;
+  border-color: #ffd000;
+  background: rgba(255,255,255,.04);
+}
 .preland-field { display: block; margin-top: 27px; }
 .version-fields {
   display: grid;
