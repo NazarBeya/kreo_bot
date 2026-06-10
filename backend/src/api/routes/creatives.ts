@@ -109,7 +109,7 @@ const uploadCreativeFromRequest = async (
     parentCreativeId,
   });
 
-  if (!result.duplicate) {
+  if (!result.duplicate && (result.creative as any).moderation_status === 'approved') {
     await notifySubscribersAboutCreative(result.creative);
   }
 

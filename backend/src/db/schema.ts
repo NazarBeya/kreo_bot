@@ -23,7 +23,7 @@ const defaultAdminSettings = [
   ['auto_archive_dead_days', 30],
   ['optional_metadata_reminder_days', 7],
   ['author_lifecycle_reminder_days', 14],
-  ['moderation_enabled', false],
+  ['moderation_enabled', true],
 ] as const;
 
 const updateCheckConstraint = async (table: string, constraint: string, definition: string) => {
@@ -85,7 +85,7 @@ export const ensureOperationalSchema = async () => {
       author_comment TEXT NULL,
       aggregated_status VARCHAR(32) NOT NULL DEFAULT 'new',
       is_archived BOOLEAN DEFAULT false,
-      moderation_status VARCHAR(32) NOT NULL DEFAULT 'approved',
+      moderation_status VARCHAR(32) NOT NULL DEFAULT 'pending_review',
       author_lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'actual',
       author_lifecycle_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
       moderated_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -99,7 +99,9 @@ export const ensureOperationalSchema = async () => {
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS preland VARCHAR(255) NULL');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS language VARCHAR(8) NULL');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS author_comment TEXT NULL');
-  await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(32) NOT NULL DEFAULT \'approved\'');
+  await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(32) NOT NULL DEFAULT \'pending_review\'');
+  await query("ALTER TABLE creatives ALTER COLUMN moderation_status SET DEFAULT 'pending_review'");
+  await query("UPDATE admin_settings SET value = 'true'::jsonb WHERE key = 'moderation_enabled' AND value = 'false'::jsonb");
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS author_lifecycle_status VARCHAR(32) NOT NULL DEFAULT \'actual\'');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS author_lifecycle_updated_at TIMESTAMP NOT NULL DEFAULT NOW()');
   await query('ALTER TABLE creatives ADD COLUMN IF NOT EXISTS moderated_by UUID REFERENCES users(id) ON DELETE SET NULL');

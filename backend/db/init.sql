@@ -46,7 +46,7 @@ CREATE TABLE creatives (
   author_comment TEXT NULL,
   aggregated_status VARCHAR(32) NOT NULL DEFAULT 'new' CHECK (aggregated_status IN ('new', 'working', 'fading', 'dead')),
   is_archived BOOLEAN DEFAULT false,
-  moderation_status VARCHAR(32) NOT NULL DEFAULT 'approved' CHECK (moderation_status IN ('pending_review', 'approved', 'rejected')),
+  moderation_status VARCHAR(32) NOT NULL DEFAULT 'pending_review' CHECK (moderation_status IN ('pending_review', 'approved', 'rejected')),
   author_lifecycle_status VARCHAR(32) NOT NULL DEFAULT 'actual' CHECK (author_lifecycle_status IN ('actual', 'fading', 'not_running')),
   author_lifecycle_updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
   moderated_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -211,4 +211,4 @@ INSERT INTO admin_settings (key, value) VALUES
   ('auto_archive_dead_days', '30'::jsonb),
   ('optional_metadata_reminder_days', '7'::jsonb),
   ('author_lifecycle_reminder_days', '14'::jsonb),
-  ('moderation_enabled', 'false'::jsonb);
+  ('moderation_enabled', 'true'::jsonb);

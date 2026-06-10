@@ -11,7 +11,7 @@ const defaults: Record<string, number> = {
 };
 
 const booleanDefaults: Record<string, boolean> = {
-  moderation_enabled: false,
+  moderation_enabled: true,
 };
 
 export const getNumericSetting = async (key: string): Promise<number> => {

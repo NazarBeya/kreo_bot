@@ -577,14 +577,16 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   position: fixed;
   z-index: 20;
   inset: 0;
-  overflow-y: auto;
-  padding-top: 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   background: rgba(0,0,0,.66);
 }
 
 .details-modal {
   position: relative;
-  min-height: calc(100vh - 54px);
+  max-height: 80vh;
+  overflow-y: auto;
   padding: 33px 32px 48px;
   border: 1px solid rgba(255,255,255,.18);
   border-bottom: 0;
@@ -1281,8 +1283,8 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   .bookmarks-heading p { font-size: 13px; }
   .bookmark-card .creative-info { min-height: 127px; }
   .bookmark-tests { margin-top: 11px; padding-top: 11px; font-size: 11px; }
-  .details-backdrop { padding-top: 35px; }
-  .details-modal { min-height: calc(100vh - 35px); padding: 27px 15px 36px; border-radius: 20px 20px 0 0; }
+  .details-backdrop { display: flex; flex-direction: column; justify-content: flex-end; }
+  .details-modal { max-height: 80vh; padding: 27px 15px 36px; border-radius: 20px 20px 0 0; }
   .details-handle { top: 11px; width: 51px; height: 6px; }
   .details-preview { min-height: 660px; }
   .details-content { padding-top: 23px; }

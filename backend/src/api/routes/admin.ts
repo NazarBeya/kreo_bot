@@ -4,6 +4,8 @@ import { query } from '../../db/pool.js';
 import { archiveDeadCreatives, pruneDownloadLogs } from '../../services/status.js';
 import { getNumericSetting } from '../../services/admin-settings.js';
 import { logger } from '../../logger.js';
+import { getCreativeById } from '../../services/creative.js';
+import { notifySubscribersAboutCreative } from '../../services/notifications.js';
 
 export const adminRouter = Router();
 
@@ -676,6 +678,13 @@ adminRouter.post('/moderation/:creativeId', async (req: Request, res: Response) 
         JSON.stringify({ moderation_status: moderationStatus, comment: req.body.comment || null }),
       ]
     );
+
+    if (moderationStatus === 'approved') {
+      const creative = await getCreativeById(req.params.creativeId);
+      if (creative) {
+        await notifySubscribersAboutCreative(creative);
+      }
+    }
 
     res.json({ data: result.rows[0] });
   } catch (error) {

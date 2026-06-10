@@ -546,6 +546,40 @@ const CreativeDetailsModal: React.FC<{
     const [commentText, setCommentText] = useState('');
     const [replyToId, setReplyToId] = useState<string | null>(null);
     const [hasDownloaded, setHasDownloaded] = useState(false);
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchTranslation, setTouchTranslation] = useState(0);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        const modalElement = e.currentTarget as HTMLElement;
+        if (modalElement.scrollTop <= 0) {
+            setTouchStart(e.targetTouches[0].clientY);
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (touchStart === null) return;
+        const currentTouch = e.targetTouches[0].clientY;
+        const diff = currentTouch - touchStart;
+        if (diff > 0) {
+            setTouchTranslation(diff);
+            if (e.cancelable) {
+                e.preventDefault();
+            }
+        } else {
+            setTouchTranslation(0);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (touchStart !== null) {
+            if (touchTranslation > 150) {
+                onClose();
+            }
+            setTouchStart(null);
+            setTouchTranslation(0);
+        }
+    };
+
     const testerCount = creative.testerCount;
     const commentCount = creative.commentCount;
     const canManageLifecycle = Boolean(
@@ -595,7 +629,17 @@ const CreativeDetailsModal: React.FC<{
 
     return (
         <div className="details-backdrop" onClick={onClose}>
-            <article className="details-modal" onClick={(event) => event.stopPropagation()}>
+            <article 
+                className="details-modal" 
+                onClick={(event) => event.stopPropagation()}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{
+                    transform: `translateY(${touchTranslation}px)`,
+                    transition: touchTranslation === 0 ? 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)' : 'none'
+                }}
+            >
             <div className="details-handle" />
             <div
                 className={`details-preview tone-${creative.tone}`}
