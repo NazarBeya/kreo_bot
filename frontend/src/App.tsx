@@ -299,9 +299,7 @@ type AppScreen = 'catalog' | 'feed' | 'upload' | 'bookmarks' | 'profile';
 
 interface UploadFileCard {
     id: string;
-    file?: File;
-    source: 'local' | 'telegram';
-    sessionIndex?: number;
+    file: File;
     name: string;
     size: string;
     tone: string;
@@ -892,10 +890,10 @@ const UploadScreen: React.FC<{
     geoOptions: string[];
     angleOptions: string[];
     languageOptions: string[];
-    telegramUploadSessionId?: string | null;
     onUploaded: () => Promise<void>;
-}> = ({ presets, uploaderLabel, geoOptions, angleOptions, languageOptions, telegramUploadSessionId, onUploaded }) => {
+}> = ({ presets, uploaderLabel, geoOptions, angleOptions, languageOptions, onUploaded }) => {
     const availablePresets = presets;
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [files, setFiles] = useState<UploadFileCard[]>([]);
     const [selectedGeos, setSelectedGeos] = useState(['DE', 'IL']);
     const [selectedAngles, setSelectedAngles] = useState(['sugar']);
@@ -910,7 +908,6 @@ const UploadScreen: React.FC<{
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState<string | null>(null);
-    const [loadedTelegramSessionId, setLoadedTelegramSessionId] = useState<string | null>(null);
 
     const toggleValue = (value: string, current: string[], setCurrent: (values: string[]) => void) => {
         setCurrent(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
@@ -959,9 +956,8 @@ const UploadScreen: React.FC<{
                 );
 
                 return {
-                    id: `${file.name}-${file.lastModified}-${file.size}`,
+                    id: `${file.name}-${file.lastModified}-${file.size}-${Date.now()}-${index}`,
                     file,
-                    source: 'local' as const,
                     name: file.name,
                     size: formatFileSize(file.size),
                     tone: ['berry', 'ocean', 'amber', 'mint'][index % 4],
@@ -980,67 +976,6 @@ const UploadScreen: React.FC<{
         });
         setUploadMessage(null);
     };
-
-    useEffect(() => {
-        if (!telegramUploadSessionId || loadedTelegramSessionId === telegramUploadSessionId) {
-            return;
-        }
-
-        const loadTelegramSession = async () => {
-            try {
-                const response = await apiClient.get(`/api/app/upload-sessions/${telegramUploadSessionId}`);
-                const sessionFiles = response.data.data.files as Array<{
-                    id: string;
-                    index: number;
-                    fileName: string;
-                    size: number;
-                }>;
-
-                setFiles(sessionFiles.map((sessionFile, index) => {
-                    const detected = detectMetadataFromFileName(sessionFile.fileName);
-                    const hasDetectedMetadata = Boolean(
-                        detected.geos?.length
-                        || detected.angles?.length
-                        || detected.preland
-                        || detected.parentShortId
-                        || detected.versionLabel
-                    );
-
-                    return {
-                        id: sessionFile.id,
-                        source: 'telegram' as const,
-                        sessionIndex: sessionFile.index,
-                        name: sessionFile.fileName,
-                        size: formatFileSize(sessionFile.size || 0),
-                        tone: ['berry', 'ocean', 'amber', 'mint'][index % 4],
-                        override: hasDetectedMetadata,
-                        geos: detected.geos || selectedGeos,
-                        angles: detected.angles || selectedAngles,
-                        preland: detected.preland || preland,
-                        authorComment,
-                        parentShortId: detected.parentShortId || parentShortId,
-                        versionLabel: detected.versionLabel || versionLabel,
-                        uploadStatus: 'idle' as const,
-                    };
-                }));
-                setLoadedTelegramSessionId(telegramUploadSessionId);
-                setUploadMessage(`батч із бота підключено: ${sessionFiles.length} файлів`);
-            } catch (requestError: any) {
-                setUploadMessage(requestError.response?.data?.error || 'Не вдалося підключити батч із бота');
-            }
-        };
-
-        void loadTelegramSession();
-    }, [
-        authorComment,
-        loadedTelegramSessionId,
-        parentShortId,
-        preland,
-        selectedAngles,
-        selectedGeos,
-        telegramUploadSessionId,
-        versionLabel,
-    ]);
 
     const applyMetadata = (metadata: UploadMetadata) => {
         setSelectedGeos(metadata.geos || []);
@@ -1084,24 +1019,26 @@ const UploadScreen: React.FC<{
     };
 
     const submitUpload = async () => {
-        if (files.length === 0 || selectedGeos.length === 0 || selectedAngles.length === 0 || uploading) {
+        const pendingFiles = files.filter((file) => file.uploadStatus === 'idle' || file.uploadStatus === 'error');
+
+        if (pendingFiles.length === 0 || selectedGeos.length === 0 || selectedAngles.length === 0 || uploading) {
             return;
         }
 
         setUploading(true);
         setUploadMessage(null);
-        setFiles((current) => current.map((file) => ({ ...file, uploadStatus: 'uploading' as const, error: undefined })));
+        const pendingIds = new Set(pendingFiles.map((file) => file.id));
+        setFiles((current) => current.map((file) => (
+            pendingIds.has(file.id)
+                ? { ...file, uploadStatus: 'uploading' as const, error: undefined }
+                : file
+        )));
 
         try {
             const formData = new FormData();
-            files.forEach((file) => {
-                if (file.file) {
-                    formData.append('files', file.file, file.name);
-                }
+            pendingFiles.forEach((file) => {
+                formData.append('files', file.file, file.name);
             });
-            if (telegramUploadSessionId) {
-                formData.append('telegramUploadSessionId', telegramUploadSessionId);
-            }
             formData.append('geos', JSON.stringify(selectedGeos));
             formData.append('angles', JSON.stringify(selectedAngles));
             if (language) {
@@ -1110,7 +1047,7 @@ const UploadScreen: React.FC<{
             formData.append('preland', preland);
             formData.append('authorComment', [authorComment, versionLabel].filter(Boolean).join(' · '));
             formData.append('parentShortId', parentShortId);
-            formData.append('overrides', JSON.stringify(files.map((file) => (
+            formData.append('overrides', JSON.stringify(pendingFiles.map((file) => (
                 file.override
                     ? {
                         geos: file.geos,
@@ -1135,8 +1072,13 @@ const UploadScreen: React.FC<{
             });
             const results = response.data.data as Array<Record<string, any>>;
 
-            setFiles((current) => current.map((file, index) => {
-                const result = results.find((item) => item.index === index);
+            setFiles((current) => current.map((file) => {
+                const pendingIndex = pendingFiles.findIndex((item) => item.id === file.id);
+                if (pendingIndex === -1) {
+                    return file;
+                }
+
+                const result = results.find((item) => item.index === pendingIndex);
 
                 if (!result) {
                     return { ...file, uploadStatus: 'error', error: 'Немає відповіді від API' };
@@ -1146,19 +1088,32 @@ const UploadScreen: React.FC<{
                     return { ...file, uploadStatus: 'error', error: result.error || 'Не вдалося залити' };
                 }
 
+                const shortId = result.creative?.short_id || result.creative?.shortId;
                 return {
                     ...file,
                     uploadStatus: result.duplicate ? 'duplicate' : 'success',
-                    shortId: result.creative?.short_id || result.creative?.shortId,
+                    shortId,
+                    error: result.duplicate ? `вже в каталозі: ${shortId}` : undefined,
                 };
             }));
             const ids = results
-                .filter((item) => item.success && item.creative)
+                .filter((item) => item.success && item.creative && !item.duplicate)
                 .map((item) => item.creative.short_id || item.creative.shortId)
                 .filter(Boolean) as string[];
             setUploadedIds(ids);
-            setUploadMessage(`готово: ${response.data.summary.succeeded}/${response.data.summary.total}`);
+            const duplicateCount = results.filter((item) => item.success && item.duplicate).length;
+            const freshCount = results.filter((item) => item.success && !item.duplicate).length;
+            setUploadMessage(
+                duplicateCount > 0
+                    ? `готово: ${freshCount} нових, ${duplicateCount} дублікат(ів)`
+                    : `готово: ${response.data.summary.succeeded}/${response.data.summary.total}`
+            );
             await onUploaded();
+            setFiles([]);
+            setUploadedIds(ids);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         } catch (requestError: any) {
             setUploadMessage(requestError.response?.data?.error || 'Не вдалося залити батч');
             setFiles((current) => current.map((file) => (
@@ -1190,6 +1145,7 @@ const UploadScreen: React.FC<{
                     }}
                 >
                     <input
+                        ref={fileInputRef}
                         multiple
                         type="file"
                         accept="image/*,video/mp4,video/quicktime,video/webm"
@@ -1828,7 +1784,6 @@ const AdminList: React.FC<{ rows: Array<{ label: string; value: number }> }> = (
 export const App: React.FC = () => {
     const isAdminPath = window.location.pathname.startsWith('/admin');
     const initialParams = new URLSearchParams(window.location.search);
-    const initialUploadSessionId = initialParams.get('uploadSession');
     const [creatives, setCreatives] = useState<CreativeCard[]>([]);
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [bookmarkCreatives, setBookmarkCreatives] = useState<CreativeCard[]>([]);
@@ -1842,7 +1797,7 @@ export const App: React.FC = () => {
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [archiveMode, setArchiveMode] = useState(false);
     const [activeScreen, setActiveScreen] = useState<AppScreen>(initialParams.get('screen') === 'upload' ? 'upload' : 'catalog');
-    const [telegramUploadSessionId, setTelegramUploadSessionId] = useState<string | null>(initialUploadSessionId);
+    const [uploadScreenKey, setUploadScreenKey] = useState(0);
     const [selectedCreative, setSelectedCreative] = useState<CreativeCard | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -2011,12 +1966,6 @@ export const App: React.FC = () => {
             const webApp = window.Telegram?.WebApp;
             webApp?.expand();
             webApp?.ready();
-            const startParam = webApp?.initDataUnsafe?.start_param || '';
-            if (!telegramUploadSessionId && startParam.startsWith('uploadSession_')) {
-                setTelegramUploadSessionId(startParam.replace('uploadSession_', ''));
-                setActiveScreen('upload');
-            }
-
             if (!webApp?.initData) {
                 setIsTelegramMiniApp(false);
                 setLoading(false);
@@ -2202,6 +2151,9 @@ export const App: React.FC = () => {
             initialScreenLoaded.current = true;
             return;
         }
+        if (activeScreen === 'upload') {
+            setUploadScreenKey((current) => current + 1);
+        }
         void refreshForScreenRef.current(activeScreen);
     }, [activeScreen, profile?.user.id]);
 
@@ -2364,12 +2316,12 @@ export const App: React.FC = () => {
             <main className="app-shell">
                 <div className="noise" />
                 <UploadScreen
+                    key={uploadScreenKey}
                     presets={profile?.presets || []}
                     uploaderLabel={viewerLabel}
                     geoOptions={referenceLists.geos}
                     angleOptions={referenceLists.angles}
                     languageOptions={referenceLists.languages}
-                    telegramUploadSessionId={telegramUploadSessionId}
                     onUploaded={loadAppData}
                 />
                 <BottomNav activeScreen={activeScreen} onNavigate={setActiveScreen} />

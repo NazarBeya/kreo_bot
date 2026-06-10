@@ -2,12 +2,13 @@ import { Bot, InlineKeyboard, session } from 'grammy';
 import { conversations, createConversation } from '@grammyjs/conversations';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { MyContext, uploadWizard, searchWizard } from './conversations.js';
-import { getUserByTelegramId, isUserAdmin } from '../services/user.js';
-import { createTelegramUploadSession, TelegramUploadSessionFile } from '../services/telegram-upload-session.js';
+import { MyContext, searchWizard } from './conversations.js';
+import { getUserByTelegramId } from '../services/user.js';
 import { query } from '../db/pool.js';
 
 export const bot = new Bot<MyContext>(config.telegram.botToken);
+
+const uploadMiniAppUrl = () => `${config.miniAppUrl}?screen=upload`;
 
 export const setupBotMenu = async () => {
   try {
@@ -32,7 +33,6 @@ bot.use(session({
 }));
 
 bot.use(conversations());
-bot.use(createConversation(uploadWizard as any));
 bot.use(createConversation(searchWizard as any));
 
 const requireWhitelistedUser = async (ctx: MyContext) => {
@@ -40,13 +40,11 @@ const requireWhitelistedUser = async (ctx: MyContext) => {
     return null;
   }
 
-  // Try to find existing user
   let user = await getUserByTelegramId(ctx.from.id);
   if (user && user.is_active) {
     return user;
   }
 
-  // Test mode: automatically create/activate any user so everyone has access
   try {
     const result = await query(
       `INSERT INTO users (telegram_id, username, display_name, role, is_active, last_active_at)
@@ -81,10 +79,18 @@ const mainMenuKeyboard = () => {
   return new InlineKeyboard()
     .webApp('📂 Каталог', config.miniAppUrl)
     .row()
-    .text('📤 Залити крео', 'action:upload')
+    .webApp('📤 Залити крео', uploadMiniAppUrl())
     .text('🔎 Знайти крео', 'action:search')
     .row()
     .webApp('⚙️ Налаштування', `${config.miniAppUrl}?screen=profile`);
+};
+
+const uploadMiniAppKeyboard = () => {
+  if (!config.miniAppUrl.startsWith('https://')) {
+    return undefined;
+  }
+
+  return new InlineKeyboard().webApp('📱 Відкрити заливку', uploadMiniAppUrl());
 };
 
 bot.command('start', async (ctx) => {
@@ -112,7 +118,7 @@ bot.command('help', async (ctx) => {
     [
       'Доступні команди:',
       '/start — головне меню',
-      '/upload — заливка через бот або Mini App',
+      '/upload — заливка в Mini App',
       '/search — пошук по ID, GEO або angle',
       '/settings — профіль і пуші в Mini App',
       '/admin — адмін-панель (lead/admin)',
@@ -147,12 +153,13 @@ bot.command('upload', async (ctx) => {
     return;
   }
 
-  await ctx.reply('Обери спосіб заливки:', {
-    reply_markup: new InlineKeyboard()
-      .text('🤖 Через бот', 'upload:bot')
-      .row()
-      .webApp('📱 Через Mini App', `${config.miniAppUrl}?screen=upload`),
-  });
+  const keyboard = uploadMiniAppKeyboard();
+  if (!keyboard) {
+    await ctx.reply('Mini App недоступний: MINI_APP_URL має бути HTTPS.');
+    return;
+  }
+
+  await ctx.reply('Заливка крео — тільки через Mini App:', { reply_markup: keyboard });
 });
 
 bot.command('search', async (ctx) => {
@@ -170,10 +177,6 @@ bot.command('admin', async (ctx) => {
     return;
   }
 
-  // Test mode: allow all users to open admin dashboard
-  // NOTE: remove this in production
-
-  // Require HTTPS only in production; allow http for local/dev testing
   if (config.env === 'production' && !config.miniAppUrl.startsWith('https://')) {
     await ctx.reply('Адмін-дашборд тимчасово недоступний. MINI_APP_URL має бути HTTPS у production.');
     return;
@@ -185,21 +188,10 @@ bot.command('admin', async (ctx) => {
   await ctx.reply('Адмін-дашборд', { reply_markup: keyboard });
 });
 
-bot.callbackQuery('action:upload', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.reply('Обери спосіб заливки:', {
-    reply_markup: new InlineKeyboard()
-      .text('🤖 Через бот', 'upload:bot')
-      .row()
-      .webApp('📱 Через Mini App', `${config.miniAppUrl}?screen=upload`),
-  });
-});
-
 bot.callbackQuery('action:search', async (ctx) => {
   await ctx.answerCallbackQuery();
   await ctx.conversation.enter('searchWizard');
 });
-
 
 bot.callbackQuery(/^lc:([^:]+):(actual|fading|not_running)$/, async (ctx) => {
   const [, creativeId, lifecycleStatus] = ctx.match;
@@ -255,126 +247,22 @@ bot.callbackQuery(/^lc:([^:]+):(actual|fading|not_running)$/, async (ctx) => {
   await ctx.editMessageText(`Статус ${creativeResult.rows[0].short_id} оновлено: ${label}`);
 });
 
-const mediaToSessionFile = (message: any): TelegramUploadSessionFile | null => {
-  if (message.photo?.length) {
-    const photo = message.photo[message.photo.length - 1];
-    return {
-      fileId: photo.file_id,
-      fileName: `photo-${message.message_id}.jpg`,
-      fileType: 'image',
-      mimeType: 'image/jpeg',
-      size: photo.file_size,
-    };
-  }
-
-  if (message.video) {
-    return {
-      fileId: message.video.file_id,
-      fileName: message.video.file_name || `video-${message.message_id}.mp4`,
-      fileType: 'video',
-      mimeType: message.video.mime_type,
-      size: message.video.file_size,
-    };
-  }
-
-  if (message.document) {
-    const mimeType = message.document.mime_type || 'application/octet-stream';
-    return {
-      fileId: message.document.file_id,
-      fileName: message.document.file_name || `document-${message.message_id}`,
-      fileType: mimeType.startsWith('video/') ? 'video' : 'document',
-      mimeType,
-      size: message.document.file_size,
-    };
-  }
-
-  return null;
-};
-
-const openUploadMiniApp = async (ctx: MyContext, messages: any[]) => {
-  const user = await requireWhitelistedUser(ctx);
-  if (!user) {
-    return;
-  }
-
-  if (!config.miniAppUrl.startsWith('https://')) {
-    await ctx.reply('Mini App upload недоступний: MINI_APP_URL має бути HTTPS.');
-    return;
-  }
-
-  const files = messages.map(mediaToSessionFile).filter(Boolean) as TelegramUploadSessionFile[];
-
-  if (files.length === 0) {
-    await ctx.reply('Не бачу підтримуваних файлів для заливки.');
-    return;
-  }
-
-  const session = await createTelegramUploadSession(ctx.from!.id, files);
-  const uploadUrl = new URL(config.miniAppUrl);
-  uploadUrl.searchParams.set('screen', 'upload');
-  uploadUrl.searchParams.set('uploadSession', session.id);
-
-  const keyboard = new InlineKeyboard().webApp(
-    files.length > 1 ? `Відкрити батч (${files.length})` : 'Відкрити заливку',
-    uploadUrl.toString()
-  );
-
-  await ctx.reply(
-    files.length > 1
-      ? `Отримав ${files.length} файлів. Відкрий Mini App, щоб виставити спільні metadata та overrides.`
-      : 'Файл готовий до заливки через Mini App.',
-    { reply_markup: keyboard }
-  );
-};
-
 bot.on(['message:photo', 'message:video', 'message:document'], async (ctx) => {
   const user = await requireWhitelistedUser(ctx);
   if (!user) {
     return;
   }
 
-  const mediaGroupId = ctx.message.media_group_id;
-
-  if (mediaGroupId) {
-    if (!ctx.session.mediaGroup || ctx.session.mediaGroup.id !== mediaGroupId) {
-      ctx.session.mediaGroup = { id: mediaGroupId, messages: [ctx.message] };
-
-      setTimeout(async () => {
-        try {
-          const group = ctx.session.mediaGroup;
-          if (group?.id === mediaGroupId) {
-            ctx.session.mediaGroup = undefined;
-            if (ctx.session.uploadMode === 'bot') {
-              await ctx.conversation.enter('uploadWizard');
-            } else {
-              await openUploadMiniApp(ctx, group.messages);
-            }
-          }
-        } catch (e) {
-          logger.error(e, 'Error creating upload session for album');
-        }
-      }, 1500);
-    } else {
-      ctx.session.mediaGroup.messages.push(ctx.message);
-    }
-  } else if (ctx.session.uploadMode === 'bot') {
-    ctx.session.mediaGroup = { id: `single-${ctx.message.message_id}`, messages: [ctx.message] };
-    await ctx.conversation.enter('uploadWizard');
-  } else {
-    ctx.session.mediaGroup = undefined;
-    await openUploadMiniApp(ctx, [ctx.message]);
-  }
-});
-
-bot.callbackQuery('upload:bot', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  ctx.session.uploadMode = 'bot';
-  await ctx.reply('Режим заливки через бот увімкнено. Надішли файли.');
+  const keyboard = uploadMiniAppKeyboard();
+  await ctx.reply(
+    'Заливка файлів у чат вимкнена. Відкрий Mini App, щоб залити крео.',
+    keyboard ? { reply_markup: keyboard } : undefined,
+  );
 });
 
 bot.on('message', (ctx) => {
   if (!ctx.message.text?.startsWith('/')) {
-    ctx.reply('Я розумію команди та медіа. Скористайся /help або меню зліва.');
+    ctx.reply('Я розумію команди. Скористайся /help або меню зліва.');
   }
 });
 
