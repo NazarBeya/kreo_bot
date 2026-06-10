@@ -267,8 +267,17 @@ const relativeDate = (isoDate: any) => {
         return 'щойно';
     }
 
-    const hours = Math.max(1, Math.round((Date.now() - timeMs) / 3_600_000));
+    const diffMs = Date.now() - timeMs;
+    if (diffMs < 60_000) {
+        return 'щойно';
+    }
 
+    const minutes = Math.floor(diffMs / 60_000);
+    if (minutes < 60) {
+        return `${minutes} хв тому`;
+    }
+
+    const hours = Math.max(1, Math.round(diffMs / 3_600_000));
     if (hours < 24) {
         return `${hours} год тому`;
     }
