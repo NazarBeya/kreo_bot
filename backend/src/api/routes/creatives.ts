@@ -577,13 +577,78 @@ creativeRouter.get('/:id/download', requireAuth, async (req: Request, res: Respo
     const fileResult = await query('SELECT file_url FROM creatives WHERE id = $1', [creative.id]);
     const fileUrl = fileResult.rows[0]?.file_url || creative.fileUrl || (creative as any).file_url;
 
+    const downloadToken = jwt.sign(
+      { creativeId: creative.id, userId: req.user.id },
+      config.jwtSecret,
+      { expiresIn: '60s' }
+    );
+
     res.json({
-      url: getSignedUrl(fileUrl, config.signedUrls.downloadTtlSeconds),
+      url: `${config.apiUrl.replace(/\/$/, '')}/api/creatives/${creative.id}/download/file?token=${downloadToken}`,
       hasDownloaded: true,
     });
   } catch (error) {
     logger.error(error, 'Error tracking download');
     res.status(500).json({ error: 'Failed to process download' });
+  }
+});
+
+creativeRouter.get('/:id/download/file', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(401).json({ error: 'Unauthorized: missing token' });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, config.jwtSecret);
+    } catch (err) {
+      return res.status(401).json({ error: 'Unauthorized: invalid or expired token' });
+    }
+
+    if (decoded.creativeId !== id) {
+      return res.status(400).json({ error: 'Invalid token payload' });
+    }
+
+    let creative = await getCreativeByShortId(id);
+    if (!creative) {
+      creative = await getCreativeById(id);
+    }
+
+    if (!creative) {
+      return res.status(404).json({ error: 'Creative not found' });
+    }
+
+    const fileResult = await query('SELECT file_url, mime_type, size_bytes FROM creatives WHERE id = $1', [creative.id]);
+    const fileUrl = fileResult.rows[0]?.file_url || creative.fileUrl || (creative as any).file_url;
+    const mimeType = fileResult.rows[0]?.mime_type || creative.mimeType || (creative as any).mime_type || 'application/octet-stream';
+    const sizeBytes = fileResult.rows[0]?.size_bytes || creative.sizeBytes || (creative as any).size_bytes;
+
+    const fileExtension = fileUrl.split('?')[0].split('.').pop() || 'mp4';
+    const filename = `${creative.shortId || 'creative'}.${fileExtension}`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', mimeType);
+    if (sizeBytes) {
+      res.setHeader('Content-Length', sizeBytes.toString());
+    }
+
+    if (config.storage.driver === 'local') {
+      const { extractObjectKey } = await import('../../services/storage.js');
+      const path = await import('node:path');
+      const key = extractObjectKey(fileUrl);
+      const filePath = path.join(config.storage.localDir, key);
+      return res.download(filePath, filename);
+    } else {
+      const buffer = await getObject(fileUrl);
+      return res.send(buffer);
+    }
+  } catch (error) {
+    logger.error(error, 'Error proxying download file');
+    res.status(500).json({ error: 'Failed to stream download file' });
   }
 });
 
