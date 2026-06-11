@@ -9,35 +9,41 @@ This is the temporary/free deployment path for a demo environment.
 - `creative-bot-db`: Render Postgres.
 - `creative-bot-redis`: Render Key Value.
 
-Object storage is not hosted on Render in this setup. By default, the application is configured to fall back to **local filesystem storage** (`STORAGE_DRIVER=local`) if S3 credentials are not configured, meaning you do not need an S3 provider to get started! 
+Media files (images, videos, previews) are stored in **Supabase Storage** via its S3-compatible API (`STORAGE_DRIVER=s3`).
 
-> [!NOTE]
-> Render's filesystem is ephemeral on the free tier (files are deleted when the container restarts). For persistent production use, it is highly recommended to configure an external S3-compatible bucket or attach a Render Disk to `/app/uploads`.
+## Supabase Storage Setup
 
-## Before Deploy (Optional S3 Configuration)
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project.
+2. **Storage** → **New bucket** → name: `creatives` → **Private** (the backend serves files through the API with auth/watermarks).
+3. **Project Settings** → **Storage** → enable **S3 protocol** → **Generate S3 access keys**.
+4. Copy **Endpoint**, **Region**, **Access Key ID**, and **Secret Access Key**.
 
-If you want to use persistent external storage, create an S3-compatible bucket, for example in Cloudflare R2, and configure the following storage values:
+Use these values in Render (`creative-bot-backend` environment):
 
 ```env
 STORAGE_DRIVER=s3
-S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-S3_PUBLIC_URL=https://<account-id>.r2.cloudflarestorage.com
-S3_ACCESS_KEY=...
-S3_SECRET_KEY=...
+S3_ENDPOINT=https://<project-ref>.storage.supabase.co/storage/v1/s3
+S3_PUBLIC_URL=https://<project-ref>.supabase.co/storage/v1/object/public
+S3_ACCESS_KEY=<access-key-id>
+S3_SECRET_KEY=<secret-access-key>
 S3_BUCKET=creatives
-S3_REGION=auto
+S3_REGION=<region-from-supabase-settings>
 ```
 
-The bucket should exist before the first upload.
+Notes:
+
+- `S3_REGION` must match the region shown in Supabase S3 settings (not `auto`).
+- The bucket must exist before the first upload.
+- Old creatives uploaded to Render local disk before this change are **not** migrated automatically — re-upload if needed.
 
 ## Deploy With Blueprint
 
 1. Push this repo to GitHub.
 2. Open Render Dashboard.
-3. Click **New** -> **Blueprint**.
+3. Click **New** → **Blueprint**.
 4. Select this repository.
 5. Render will read `render.yaml`.
-6. Fill all `sync: false` environment variables.
+6. Fill all `sync: false` environment variables (including Supabase S3 keys).
 
 Backend values:
 
@@ -46,13 +52,13 @@ API_URL=https://creative-bot-backend.onrender.com
 MINI_APP_URL=https://creative-bot-frontend.onrender.com
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_BOT_USERNAME=...
-STORAGE_DRIVER=local
-STORAGE_LOCAL_DIR=/app/uploads
-S3_ENDPOINT=...
-S3_PUBLIC_URL=...
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://<project-ref>.storage.supabase.co/storage/v1/s3
+S3_PUBLIC_URL=https://<project-ref>.supabase.co/storage/v1/object/public
 S3_ACCESS_KEY=...
 S3_SECRET_KEY=...
 S3_BUCKET=creatives
+S3_REGION=eu-central-1
 SENTRY_DSN=
 ```
 
@@ -103,4 +109,4 @@ Set the Mini App URL in Telegram/BotFather to the frontend URL.
 
 ## Free Tier Notes
 
-This setup is for demo/testing. Render free services can sleep after inactivity, so the bot may respond with a delay. For real team usage with video uploads, move to a VPS or paid Render services plus external object storage.
+This setup is for demo/testing. Render free services can sleep after inactivity, so the bot may respond with a delay. Supabase free tier includes 1 GB storage — enough for early testing.

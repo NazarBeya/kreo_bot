@@ -6,7 +6,8 @@ import { promisify } from 'node:util';
 import sharp from 'sharp';
 import { hashFile } from '../utils/crypto.js';
 import { checkDuplicateHash, createCreative } from './creative.js';
-import { ensureBucket, putObject } from './storage.js';
+import { ensureBucket, extractObjectKey, getObject, putObject, tryGetObject } from './storage.js';
+import { logger } from '../logger.js';
 
 const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']);
 const videoMimeTypes = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
@@ -57,6 +58,103 @@ const createWatermarkSvg = (width: number, height: number, text: string) => {
       <rect width="${width}" height="${height}" fill="url(#watermark)" />
     </svg>
   `);
+};
+
+const generateImagePreviewBuffer = async (fileBuffer: Buffer) => (
+  sharp(fileBuffer)
+    .rotate()
+    .resize({ width: 720, height: 720, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer()
+);
+
+const generateVideoPreviewBuffer = async (fileBuffer: Buffer, mimeType: string) => {
+  const ext = getExtension(mimeType);
+  const tempDir = path.join(tmpdir(), `preview-${hashFile(fileBuffer).slice(0, 16)}`);
+  const inputPath = path.join(tempDir, `input.${ext}`);
+  const previewPath = path.join(tempDir, 'preview.webp');
+
+  try {
+    await mkdir(tempDir, { recursive: true });
+    await writeFile(inputPath, fileBuffer);
+
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-select_streams',
+      'v:0',
+      '-show_entries',
+      'stream=width,height,duration:format=duration',
+      '-of',
+      'json',
+      inputPath,
+    ]);
+    const probe = JSON.parse(stdout);
+    const duration = Math.round(Number(probe.streams?.[0]?.duration || probe.format?.duration || 0)) || 0;
+
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-ss',
+      duration > 2 ? '00:00:01' : '00:00:00',
+      '-i',
+      inputPath,
+      '-frames:v',
+      '1',
+      '-vf',
+      'scale=720:720:force_original_aspect_ratio=decrease',
+      '-quality',
+      '82',
+      previewPath,
+    ]);
+
+    return await readFile(previewPath);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+};
+
+export const resolveCreativePreviewBuffer = async (creative: {
+  id: string;
+  preview_url?: string | null;
+  file_url?: string | null;
+  file_type?: string | null;
+  mime_type?: string | null;
+}): Promise<Buffer> => {
+  if (creative.preview_url) {
+    const previewBuffer = await tryGetObject(creative.preview_url);
+    if (previewBuffer) {
+      return previewBuffer;
+    }
+
+    logger.warn({ creativeId: creative.id }, 'Preview file missing, regenerating from original');
+  }
+
+  if (!creative.file_url) {
+    const error = new Error('Creative file not found');
+    (error as NodeJS.ErrnoException).code = 'CREATIVE_MEDIA_NOT_FOUND';
+    throw error;
+  }
+
+  const originalBuffer = await tryGetObject(creative.file_url);
+  if (!originalBuffer) {
+    const error = new Error('Creative file not found');
+    (error as NodeJS.ErrnoException).code = 'CREATIVE_MEDIA_NOT_FOUND';
+    throw error;
+  }
+  const regenerated = creative.file_type === 'video'
+    ? await generateVideoPreviewBuffer(originalBuffer, creative.mime_type || 'video/mp4')
+    : await generateImagePreviewBuffer(originalBuffer);
+
+  if (creative.preview_url) {
+    try {
+      const previewKey = extractObjectKey(creative.preview_url);
+      await putObject({ key: previewKey, body: regenerated, contentType: 'image/webp' });
+    } catch (healError) {
+      logger.warn(healError, 'Failed to restore missing preview file');
+    }
+  }
+
+  return regenerated;
 };
 
 export const applyWatermarkToPreview = async (preview: Buffer, watermarkText: string) => {

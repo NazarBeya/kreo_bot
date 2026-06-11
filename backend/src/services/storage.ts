@@ -176,7 +176,18 @@ export const extractObjectKey = (fileUrlOrKey: string): string => {
   }
 
   if (fileUrlOrKey.startsWith('http')) {
-    const parts = new URL(fileUrlOrKey).pathname.split('/');
+    const parsed = new URL(fileUrlOrKey);
+    const supabaseObjectMatch = parsed.pathname.match(
+      /\/storage\/v1\/object\/(?:public|authenticated|sign)\/([^/]+)\/(.+)$/
+    );
+    if (supabaseObjectMatch) {
+      const [, bucket, objectKey] = supabaseObjectMatch;
+      if (bucket === config.s3.bucket) {
+        return decodeURIComponent(objectKey);
+      }
+    }
+
+    const parts = parsed.pathname.split('/');
     const bucketIndex = parts.findIndex((part) => part === config.s3.bucket);
     if (bucketIndex >= 0) {
       return decodeURIComponent(parts.slice(bucketIndex + 1).join('/'));
@@ -197,6 +208,19 @@ export const getObject = async (fileUrlOrKey: string): Promise<Buffer> => {
   const response = await requestObjectStorage('GET', `/${config.s3.bucket}/${encodePath(key)}`);
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
+};
+
+export const tryGetObject = async (fileUrlOrKey: string): Promise<Buffer | null> => {
+  try {
+    return await getObject(fileUrlOrKey);
+  } catch (error: any) {
+    const message = String(error?.message || '');
+    if (error?.code === 'ENOENT' || message.includes(' 404 ') || message.includes('NoSuchKey')) {
+      return null;
+    }
+
+    throw error;
+  }
 };
 
 export const putObject = async ({ key, body, contentType }: PutObjectInput): Promise<string> => {

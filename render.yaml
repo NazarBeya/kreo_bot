@@ -41,9 +41,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: STORAGE_DRIVER
-        value: local
-      - key: STORAGE_LOCAL_DIR
-        value: /app/uploads
+        value: s3
       - key: S3_ENDPOINT
         sync: false
       - key: S3_PUBLIC_URL
@@ -53,9 +51,9 @@ services:
       - key: S3_SECRET_KEY
         sync: false
       - key: S3_BUCKET
-        sync: false
+        value: creatives
       - key: S3_REGION
-        value: auto
+        sync: false
       - key: LOG_LEVEL
         value: info
       - key: SENTRY_DSN

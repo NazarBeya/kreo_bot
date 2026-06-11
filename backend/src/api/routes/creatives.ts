@@ -3,7 +3,7 @@ import multer from 'multer';
 import jwt from 'jsonwebtoken';
 import { requireAuth } from '../../middleware/auth.js';
 import { getCreativeByShortId, getCreativeVersionHistory, searchCreatives, getCreativeById, type CreativeSortMode } from '../../services/creative.js';
-import { applyWatermarkToPreview, uploadCreativeMedia } from '../../services/media.js';
+import { applyWatermarkToPreview, resolveCreativePreviewBuffer, uploadCreativeMedia } from '../../services/media.js';
 import { getObject, streamCreativeFile } from '../../services/storage.js';
 import { getViewerWatermarkLabel } from '../../services/user.js';
 import { notifyCreativeDownloaded, notifySubscribersAboutCreative } from '../../services/notifications.js';
@@ -524,16 +524,22 @@ export const creativePreviewHandler = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Creative not found' });
     }
 
-    const previewResult = await query(
-      'SELECT preview_url FROM creatives WHERE id = $1',
+    const fileResult = await query(
+      'SELECT preview_url, file_url, file_type, mime_type FROM creatives WHERE id = $1',
       [creative.id]
     );
-    const previewSource = previewResult.rows[0]?.preview_url;
-    if (!previewSource) {
+    const fileRow = fileResult.rows[0];
+    if (!fileRow?.preview_url && !fileRow?.file_url) {
       return res.status(404).json({ error: 'Preview not found' });
     }
 
-    const previewBuffer = await getObject(previewSource);
+    const previewBuffer = await resolveCreativePreviewBuffer({
+      id: creative.id,
+      preview_url: fileRow.preview_url,
+      file_url: fileRow.file_url,
+      file_type: fileRow.file_type,
+      mime_type: fileRow.mime_type,
+    });
     const watermark = getViewerWatermarkLabel(viewer);
 
     let responseBuffer = previewBuffer;
@@ -547,7 +553,11 @@ export const creativePreviewHandler = async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.setHeader('Vary', 'Authorization');
     res.send(responseBuffer);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'CREATIVE_MEDIA_NOT_FOUND') {
+      return res.status(404).json({ error: 'Preview not found' });
+    }
+
     logger.error(error, 'Error generating watermarked preview');
     res.status(500).json({ error: 'Failed to generate preview' });
   }
