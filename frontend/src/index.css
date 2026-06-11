@@ -1680,12 +1680,13 @@ body.modal-open {
   position: fixed;
   z-index: 1000;
   inset: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: radial-gradient(circle, rgba(15, 17, 17, 0.97) 0%, rgba(5, 5, 5, 0.99) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(10px);
-  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: fadeIn 0.25s ease-out;
 }
 
 .lightbox-close {
@@ -1693,23 +1694,32 @@ body.modal-open {
   top: 24px;
   right: 24px;
   z-index: 1010;
-  width: 56px;
-  height: 56px;
-  border: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .lightbox-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  transform: rotate(90deg) scale(1.05);
+}
+
+.lightbox-close:active {
+  transform: scale(0.95);
 }
 
 .lightbox-content {
@@ -1721,23 +1731,36 @@ body.modal-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 48px 24px;
+}
+
+.lightbox-media-wrapper {
+  position: relative;
+  display: inline-flex;
+  max-width: 88vw;
+  max-height: 82vh;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #000;
 }
 
 .lightbox-media {
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  border-radius: 4px;
+  display: block;
 }
 
-.media-lightbox .watermarks {
+.lightbox-media-wrapper .watermarks {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 1005;
+  z-index: 10;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -1748,4 +1771,15 @@ body.modal-open {
 @keyframes scaleIn {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+/* Hide native video volume controls (slider, mute button, container) */
+video::-webkit-media-controls-volume-slider,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-volume-control-container {
+  display: none !important;
+}
+video::-moz-media-controls-volume-slider,
+video::-moz-media-controls-mute-button {
+  display: none !important;
 }

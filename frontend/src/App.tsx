@@ -1011,23 +1011,25 @@ const CreativeDetailsModal: React.FC<{
                         ✕
                     </button>
                     <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
-                        {creative.fileType === 'video' ? (
-                            <video
-                                className="lightbox-media"
-                                src={getCreativeStreamUrl(creative.id)}
-                                controls
-                                playsInline
-                                autoPlay
-                                preload="metadata"
-                            />
-                        ) : (
-                            <img
-                                className="lightbox-media"
-                                src={getWatermarkedPreviewUrl(creative.id)}
-                                alt=""
-                            />
-                        )}
-                        <ViewerWatermarks viewerLabel={viewerLabel} />
+                        <div className="lightbox-media-wrapper">
+                            {creative.fileType === 'video' ? (
+                                <video
+                                    className="lightbox-media"
+                                    src={getCreativeStreamUrl(creative.id)}
+                                    controls
+                                    playsInline
+                                    autoPlay
+                                    preload="metadata"
+                                />
+                            ) : (
+                                <img
+                                    className="lightbox-media"
+                                    src={getWatermarkedPreviewUrl(creative.id)}
+                                    alt=""
+                                />
+                            )}
+                            <ViewerWatermarks viewerLabel={viewerLabel} />
+                        </div>
                     </div>
                 </div>
             )}
