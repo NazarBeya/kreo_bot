@@ -3,9 +3,8 @@ import multer from 'multer';
 import jwt from 'jsonwebtoken';
 import { requireAuth } from '../../middleware/auth.js';
 import { getCreativeByShortId, getCreativeVersionHistory, searchCreatives, getCreativeById, type CreativeSortMode } from '../../services/creative.js';
-import { applyWatermarkToPreview, resolveCreativePreviewBuffer, uploadCreativeMedia } from '../../services/media.js';
+import { resolveCreativePreviewBuffer, uploadCreativeMedia } from '../../services/media.js';
 import { getObject, streamCreativeFile } from '../../services/storage.js';
-import { getViewerWatermarkLabel } from '../../services/user.js';
 import { notifyCreativeDownloaded, notifySubscribersAboutCreative } from '../../services/notifications.js';
 import { logger } from '../../logger.js';
 import { isValidFileSize, isValidGeoCode, sanitizeString } from '../../utils/validation.js';
@@ -540,25 +539,17 @@ export const creativePreviewHandler = async (req: Request, res: Response) => {
       file_type: fileRow.file_type,
       mime_type: fileRow.mime_type,
     });
-    const watermark = getViewerWatermarkLabel(viewer);
-
-    let responseBuffer = previewBuffer;
-    try {
-      responseBuffer = await applyWatermarkToPreview(previewBuffer, watermark);
-    } catch (watermarkError) {
-      logger.error(watermarkError, 'Watermark failed, serving raw preview');
-    }
 
     res.setHeader('Content-Type', 'image/webp');
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.setHeader('Vary', 'Authorization');
-    res.send(responseBuffer);
+    res.send(previewBuffer);
   } catch (error: any) {
     if (error?.code === 'CREATIVE_MEDIA_NOT_FOUND') {
       return res.status(404).json({ error: 'Preview not found' });
     }
 
-    logger.error(error, 'Error generating watermarked preview');
+    logger.error(error, 'Error generating preview');
     res.status(500).json({ error: 'Failed to generate preview' });
   }
 };
