@@ -671,6 +671,7 @@ const CreativeDetailsModal: React.FC<{
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [touchTranslation, setTouchTranslation] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         const modalElement = e.currentTarget as HTMLElement;
@@ -712,6 +713,9 @@ const CreativeDetailsModal: React.FC<{
 
     useEffect(() => {
         setIsPlaying(initialAutoPlay);
+        if (initialAutoPlay) {
+            setIsLightboxOpen(true);
+        }
     }, [creative.id, initialAutoPlay]);
 
     useEffect(() => {
@@ -777,7 +781,10 @@ const CreativeDetailsModal: React.FC<{
                 }}
             >
                 <div className="details-handle" />
-                <div className={`details-preview tone-${creative.tone}`}>
+                <div 
+                    className={`details-preview tone-${creative.tone} clickable-preview`}
+                    onClick={() => setIsLightboxOpen(true)}
+                >
                     <CreativePreviewMedia
                         allowVideoPlayback
                         creativeId={creative.id}
@@ -785,7 +792,7 @@ const CreativeDetailsModal: React.FC<{
                         playing={isPlaying}
                         onPlay={(event) => {
                             event.stopPropagation();
-                            setIsPlaying(true);
+                            setIsLightboxOpen(true);
                         }}
                     />
                     <span className={`status-pill status-${creative.status}`}>
@@ -796,6 +803,9 @@ const CreativeDetailsModal: React.FC<{
                     {!isPlaying && <ViewerWatermarks viewerLabel={viewerLabel} />}
                     <div className="geo-list">
                         {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
+                    </div>
+                    <div className="expand-indicator" aria-hidden="true">
+                        ⛶
                     </div>
                 </div>
                 <section className="details-content">
@@ -989,6 +999,38 @@ const CreativeDetailsModal: React.FC<{
                     )}
                 </section>
             </article>
+
+            {isLightboxOpen && (
+                <div className="media-lightbox" onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); }}>
+                    <button 
+                        className="lightbox-close" 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); }}
+                        aria-label="Закрити"
+                    >
+                        ✕
+                    </button>
+                    <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+                        {creative.fileType === 'video' ? (
+                            <video
+                                className="lightbox-media"
+                                src={getCreativeStreamUrl(creative.id)}
+                                controls
+                                playsInline
+                                autoPlay
+                                preload="metadata"
+                            />
+                        ) : (
+                            <img
+                                className="lightbox-media"
+                                src={getWatermarkedPreviewUrl(creative.id)}
+                                alt=""
+                            />
+                        )}
+                        <ViewerWatermarks viewerLabel={viewerLabel} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
