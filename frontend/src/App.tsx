@@ -4,8 +4,9 @@ import { AdminUsersPanel } from './components/AdminUsersPanel';
 import { GeoCombobox } from './components/GeoCombobox';
 import { LanguageCombobox } from './components/LanguageCombobox';
 import { useMobileKeyboard } from './hooks/useMobileKeyboard';
+import { WatermarkedPreviewImage } from './components/WatermarkedPreviewImage';
 import { buildCreativeFilename, downloadFileToDevice } from './utils/download';
-import { getCreativeStreamUrl, getWatermarkedPreviewUrl } from './utils/preview';
+import { getCreativeStreamUrl } from './utils/preview';
 
 type CreativeStatus = 'new' | 'working' | 'fading' | 'dead';
 
@@ -209,10 +210,11 @@ const tones = ['ember', 'violet', 'berry', 'ocean'];
 const CreativePreviewMedia: React.FC<{
     creativeId: string;
     fileType?: 'video' | 'image';
+    allowVideoPlayback?: boolean;
     playing?: boolean;
     onPlay?: (event: React.MouseEvent<HTMLButtonElement>) => void;
-}> = ({ creativeId, fileType = 'image', playing = false, onPlay }) => {
-    if (fileType === 'video' && playing) {
+}> = ({ creativeId, fileType = 'image', allowVideoPlayback = false, playing = false, onPlay }) => {
+    if (allowVideoPlayback && fileType === 'video' && playing) {
         return (
             <video
                 className="creative-preview-media"
@@ -228,12 +230,7 @@ const CreativePreviewMedia: React.FC<{
 
     return (
         <>
-            <img
-                className="creative-preview-media"
-                src={getWatermarkedPreviewUrl(creativeId)}
-                alt=""
-                loading="lazy"
-            />
+            <WatermarkedPreviewImage creativeId={creativeId} className="creative-preview-media" />
             {fileType === 'video' && onPlay && (
                 <button
                     className="play-button"
@@ -564,25 +561,24 @@ const BottomNav: React.FC<{ activeScreen: AppScreen; onNavigate: (screen: AppScr
 
 const CreativePreview: React.FC<{
     creative: CreativeCard;
+    viewerLabel: string;
     onOpen: (creative: CreativeCard, options?: { autoPlay?: boolean }) => void;
 }> = ({
     creative,
+    viewerLabel,
     onOpen,
-}) => {
-    const [playing, setPlaying] = useState(false);
-
-    return (
-        <article className="creative-card catalog-card" onClick={() => !playing && onOpen(creative)}>
+}) => (
+        <article className="creative-card catalog-card" onClick={() => onOpen(creative)}>
             <div className={`creative-preview tone-${creative.tone}`}>
                 <CreativePreviewMedia
                     creativeId={creative.id}
                     fileType={creative.fileType}
-                    playing={playing}
                     onPlay={(event) => {
                         event.stopPropagation();
-                        setPlaying(true);
+                        onOpen(creative, { autoPlay: true });
                     }}
                 />
+                <ViewerWatermarks viewerLabel={viewerLabel} />
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
@@ -604,29 +600,27 @@ const CreativePreview: React.FC<{
             </div>
         </article>
     );
-};
 
 const BookmarkPreview: React.FC<{
     creative: CreativeCard;
+    viewerLabel: string;
     onOpen: (creative: CreativeCard, options?: { autoPlay?: boolean }) => void;
 }> = ({
     creative,
+    viewerLabel,
     onOpen,
-}) => {
-    const [playing, setPlaying] = useState(false);
-
-    return (
-        <article className="creative-card bookmark-card" onClick={() => !playing && onOpen(creative)}>
+}) => (
+        <article className="creative-card bookmark-card" onClick={() => onOpen(creative)}>
             <div className={`creative-preview tone-${creative.tone}`}>
                 <CreativePreviewMedia
                     creativeId={creative.id}
                     fileType={creative.fileType}
-                    playing={playing}
                     onPlay={(event) => {
                         event.stopPropagation();
-                        setPlaying(true);
+                        onOpen(creative, { autoPlay: true });
                     }}
                 />
+                <ViewerWatermarks viewerLabel={viewerLabel} />
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
@@ -648,17 +642,20 @@ const BookmarkPreview: React.FC<{
             </div>
         </article>
     );
-};
 
 const CreativeDetailsModal: React.FC<{
     creative: CreativeCard;
     currentUser?: ProfileData['user'];
+    initialAutoPlay?: boolean;
     onClose: () => void;
     onBookmarkToggle: (creative: CreativeCard) => void;
     onCommentAdded: (creativeId: string) => void;
     onResurrect: (creative: CreativeCard) => Promise<void>;
     onLifecycleUpdate: (creative: CreativeCard, status: 'actual' | 'fading' | 'not_running') => Promise<void>;
-}> = ({ creative, currentUser, onClose, onBookmarkToggle, onCommentAdded, onResurrect, onLifecycleUpdate }) => {
+}> = ({ creative, currentUser, initialAutoPlay = false, onClose, onBookmarkToggle, onCommentAdded, onResurrect, onLifecycleUpdate }) => {
+    const viewerLabel = currentUser?.username
+        ? `@${currentUser.username}`
+        : currentUser?.displayName || 'невідомо';
     const [activeTab, setActiveTab] = useState<'info' | 'versions' | 'testers' | 'comments'>('info');
     const [testers, setTesters] = useState<TesterStatus[]>([]);
     const [comments, setComments] = useState<CreativeComment[]>([]);
@@ -710,8 +707,8 @@ const CreativeDetailsModal: React.FC<{
     );
 
     useEffect(() => {
-        setIsPlaying(false);
-    }, [creative.id]);
+        setIsPlaying(initialAutoPlay);
+    }, [creative.id, initialAutoPlay]);
 
     useEffect(() => {
         const loadDetails = async () => {
@@ -778,6 +775,7 @@ const CreativeDetailsModal: React.FC<{
                 <div className="details-handle" />
                 <div className={`details-preview tone-${creative.tone}`}>
                     <CreativePreviewMedia
+                        allowVideoPlayback
                         creativeId={creative.id}
                         fileType={creative.fileType}
                         playing={isPlaying}
@@ -791,6 +789,7 @@ const CreativeDetailsModal: React.FC<{
                         {statusLabels[creative.status]}
                     </span>
                     {creative.isArchived && <span className="archive-badge">архів</span>}
+                    {!isPlaying && <ViewerWatermarks viewerLabel={viewerLabel} />}
                     <div className="geo-list">
                         {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
                     </div>
@@ -1905,6 +1904,7 @@ export const App: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<AppScreen>(initialParams.get('screen') === 'upload' ? 'upload' : 'catalog');
     const [uploadScreenKey, setUploadScreenKey] = useState(0);
     const [selectedCreative, setSelectedCreative] = useState<CreativeCard | null>(null);
+    const [autoPlayOnOpen, setAutoPlayOnOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isTelegramMiniApp, setIsTelegramMiniApp] = useState(true);
@@ -1922,6 +1922,16 @@ export const App: React.FC = () => {
     });
 
     useMobileKeyboard();
+
+    const openCreative = (creative: CreativeCard, options?: { autoPlay?: boolean }) => {
+        setAutoPlayOnOpen(Boolean(options?.autoPlay));
+        setSelectedCreative(creative);
+    };
+
+    const closeCreative = () => {
+        setSelectedCreative(null);
+        setAutoPlayOnOpen(false);
+    };
 
     const buildCatalogParams = (
         nextArchiveMode = archiveMode,
@@ -2122,7 +2132,7 @@ export const App: React.FC = () => {
     const toggleArchiveMode = async () => {
         const nextArchiveMode = !archiveMode;
         setArchiveMode(nextArchiveMode);
-        setSelectedCreative(null);
+        closeCreative();
         setLoading(true);
         setError(null);
 
@@ -2139,7 +2149,7 @@ export const App: React.FC = () => {
         await apiClient.post(`/api/status/${creative.id}/resurrect`, {
             geoCode: creative.geos[0],
         });
-        setSelectedCreative(null);
+        closeCreative();
         await loadAppData(archiveMode);
     };
 
@@ -2232,7 +2242,7 @@ export const App: React.FC = () => {
 
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
-                setSelectedCreative(null);
+                closeCreative();
             }
         };
 
@@ -2412,7 +2422,8 @@ export const App: React.FC = () => {
                             <BookmarkPreview
                                 creative={creative}
                                 key={creative.id}
-                                onOpen={setSelectedCreative}
+                                viewerLabel={viewerLabel}
+                                onOpen={openCreative}
                             />
                         ))}
                     </section>
@@ -2422,7 +2433,8 @@ export const App: React.FC = () => {
                     <CreativeDetailsModal
                         creative={selectedCreative}
                         currentUser={profile?.user}
-                        onClose={() => setSelectedCreative(null)}
+                        initialAutoPlay={autoPlayOnOpen}
+                        onClose={closeCreative}
                         onBookmarkToggle={toggleBookmark}
                         onCommentAdded={updateCommentCount}
                         onResurrect={resurrectCreative}
@@ -2604,7 +2616,8 @@ export const App: React.FC = () => {
                         <CreativePreview
                             creative={creative}
                             key={creative.id}
-                            onOpen={setSelectedCreative}
+                            viewerLabel={viewerLabel}
+                            onOpen={openCreative}
                         />
                     ))}
                 </section>
@@ -2615,7 +2628,8 @@ export const App: React.FC = () => {
                 <CreativeDetailsModal
                     creative={selectedCreative}
                     currentUser={profile?.user}
-                    onClose={() => setSelectedCreative(null)}
+                    initialAutoPlay={autoPlayOnOpen}
+                    onClose={closeCreative}
                     onBookmarkToggle={toggleBookmark}
                     onCommentAdded={updateCommentCount}
                     onResurrect={resurrectCreative}

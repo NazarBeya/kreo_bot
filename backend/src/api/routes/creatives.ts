@@ -439,12 +439,24 @@ const resolvePreviewUser = async (req: Request) => {
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as { telegramId: number };
-    const result = await query(
-      'SELECT id, telegram_id, username, display_name, role, is_active FROM users WHERE telegram_id = $1 LIMIT 1',
-      [decoded.telegramId]
-    );
-    return result.rows[0] || null;
+    const decoded = jwt.verify(token, config.jwtSecret) as { id?: string; telegramId?: number };
+    if (decoded.telegramId) {
+      const result = await query(
+        'SELECT id, telegram_id, username, display_name, role, is_active FROM users WHERE telegram_id = $1 LIMIT 1',
+        [decoded.telegramId]
+      );
+      return result.rows[0] || null;
+    }
+
+    if (decoded.id) {
+      const result = await query(
+        'SELECT id, telegram_id, username, display_name, role, is_active FROM users WHERE id = $1 LIMIT 1',
+        [decoded.id]
+      );
+      return result.rows[0] || null;
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -512,7 +524,15 @@ export const creativePreviewHandler = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Creative not found' });
     }
 
-    const previewSource = (creative as any).preview_url || creative.previewUrl;
+    const previewResult = await query(
+      'SELECT preview_url FROM creatives WHERE id = $1',
+      [creative.id]
+    );
+    const previewSource = previewResult.rows[0]?.preview_url;
+    if (!previewSource) {
+      return res.status(404).json({ error: 'Preview not found' });
+    }
+
     const previewBuffer = await getObject(previewSource);
     const watermark = getViewerWatermarkLabel(viewer);
     const watermarked = await applyWatermarkToPreview(previewBuffer, watermark);
