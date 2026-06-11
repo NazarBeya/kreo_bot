@@ -1223,6 +1223,13 @@ body.modal-open {
 .field-combobox .field-combobox-list button {
   text-transform: lowercase;
 }
+.geo-quick-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .geo-combobox-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1515,6 +1522,16 @@ body.modal-open {
     background-position: right 16px center;
     padding-right: 40px;
   }
+  .field-combobox-control input {
+    min-height: 52px;
+    height: 52px;
+    padding: 0 16px;
+    border-radius: 7px;
+    font-size: 14px;
+  }
+  .geo-quick-options { gap: 8px; margin-bottom: 8px; }
+  .geo-combobox-chips { gap: 8px; margin-bottom: 8px; }
+  .geo-combobox-chips button { min-height: 36px; padding: 6px 14px; font-size: 14px; }
   .upload-file-section { margin-top: 24px; }
   .upload-file-section h2 { margin-bottom: 11px; }
   .upload-file-grid { gap: 12px; }

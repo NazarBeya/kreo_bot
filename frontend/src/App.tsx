@@ -4,9 +4,8 @@ import { AdminUsersPanel } from './components/AdminUsersPanel';
 import { GeoCombobox } from './components/GeoCombobox';
 import { LanguageCombobox } from './components/LanguageCombobox';
 import { useMobileKeyboard } from './hooks/useMobileKeyboard';
-import { WatermarkedPreviewImage } from './components/WatermarkedPreviewImage';
 import { buildCreativeFilename, downloadFileToDevice } from './utils/download';
-import { getCreativeStreamUrl } from './utils/preview';
+import { getCreativeStreamUrl, getWatermarkedPreviewUrl } from './utils/preview';
 
 type CreativeStatus = 'new' | 'working' | 'fading' | 'dead';
 
@@ -230,7 +229,12 @@ const CreativePreviewMedia: React.FC<{
 
     return (
         <>
-            <WatermarkedPreviewImage creativeId={creativeId} className="creative-preview-media" />
+            <img
+                className="creative-preview-media"
+                src={getWatermarkedPreviewUrl(creativeId)}
+                alt=""
+                loading="lazy"
+            />
             {fileType === 'video' && onPlay && (
                 <button
                     className="play-button"

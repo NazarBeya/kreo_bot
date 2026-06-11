@@ -535,12 +535,18 @@ export const creativePreviewHandler = async (req: Request, res: Response) => {
 
     const previewBuffer = await getObject(previewSource);
     const watermark = getViewerWatermarkLabel(viewer);
-    const watermarked = await applyWatermarkToPreview(previewBuffer, watermark);
+
+    let responseBuffer = previewBuffer;
+    try {
+      responseBuffer = await applyWatermarkToPreview(previewBuffer, watermark);
+    } catch (watermarkError) {
+      logger.error(watermarkError, 'Watermark failed, serving raw preview');
+    }
 
     res.setHeader('Content-Type', 'image/webp');
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.setHeader('Vary', 'Authorization');
-    res.send(watermarked);
+    res.send(responseBuffer);
   } catch (error) {
     logger.error(error, 'Error generating watermarked preview');
     res.status(500).json({ error: 'Failed to generate preview' });

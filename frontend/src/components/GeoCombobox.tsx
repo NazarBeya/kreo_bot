@@ -1,5 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 
+const QUICK_GEOS = ['DE', 'IL', 'PL', 'GB', 'US'];
+
 interface GeoComboboxProps {
     label: string;
     options: string[];
@@ -23,10 +25,15 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
 
-    const uniqueOptions = useMemo(
-        () => Array.from(new Set([...options, ...selected].map((item) => item.toUpperCase()))),
-        [options, selected],
+    const customSelected = useMemo(
+        () => selected.filter((geo) => !QUICK_GEOS.includes(geo)),
+        [selected],
     );
+
+    const uniqueOptions = useMemo(() => {
+        const merged = new Set([...options, ...selected].map((item) => item.toUpperCase()));
+        return Array.from(merged).filter((item) => !QUICK_GEOS.includes(item));
+    }, [options, selected]);
 
     const filteredOptions = useMemo(() => {
         const normalized = query.trim().toUpperCase();
@@ -37,18 +44,12 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
         return uniqueOptions.filter((option) => option.includes(normalized));
     }, [query, uniqueOptions]);
 
-    const toggleGeo = (geo: string) => {
-        const normalized = normalizeGeo(geo);
-        if (!isGeoCode(normalized)) {
-            return;
-        }
-
+    const toggleQuickGeo = (geo: string) => {
         onChange(
-            selected.includes(normalized)
-                ? selected.filter((item) => item !== normalized)
-                : [...selected, normalized],
+            selected.includes(geo)
+                ? selected.filter((item) => item !== geo)
+                : [...selected, geo],
         );
-        setQuery('');
     };
 
     const addGeo = (geo: string) => {
@@ -60,6 +61,29 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
         onChange([...selected, normalized]);
         setQuery('');
         setOpen(false);
+    };
+
+    const removeCustomGeo = (geo: string) => {
+        onChange(selected.filter((item) => item !== geo));
+    };
+
+    const toggleDropdownGeo = (geo: string) => {
+        const normalized = normalizeGeo(geo);
+        if (!isGeoCode(normalized)) {
+            return;
+        }
+
+        if (QUICK_GEOS.includes(normalized)) {
+            toggleQuickGeo(normalized);
+            return;
+        }
+
+        onChange(
+            selected.includes(normalized)
+                ? selected.filter((item) => item !== normalized)
+                : [...selected, normalized],
+        );
+        setQuery('');
     };
 
     const handleBlur = () => {
@@ -82,13 +106,25 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
     return (
         <section className="upload-option-group geo-combobox" ref={rootRef}>
             <h3>{label}</h3>
-            {selected.length > 0 && (
+            <div className="geo-quick-options">
+                {QUICK_GEOS.map((geo) => (
+                    <button
+                        className={selected.includes(geo) ? 'active' : ''}
+                        key={geo}
+                        onClick={() => toggleQuickGeo(geo)}
+                        type="button"
+                    >
+                        {geo}
+                    </button>
+                ))}
+            </div>
+            {customSelected.length > 0 && (
                 <div className="geo-combobox-chips">
-                    {selected.map((geo) => (
+                    {customSelected.map((geo) => (
                         <button
                             className="active"
                             key={geo}
-                            onClick={() => toggleGeo(geo)}
+                            onClick={() => removeCustomGeo(geo)}
                             type="button"
                         >
                             {geo} ×
@@ -122,8 +158,8 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                             (event.target as HTMLInputElement).blur();
                         }
 
-                        if (event.key === 'Backspace' && !query && selected.length > 0) {
-                            onChange(selected.slice(0, -1));
+                        if (event.key === 'Backspace' && !query && customSelected.length > 0) {
+                            removeCustomGeo(customSelected[customSelected.length - 1]);
                         }
                     }}
                     placeholder={placeholder}
@@ -138,14 +174,16 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                                 <button
                                     className={selected.includes(option) ? 'active' : ''}
                                     onMouseDown={(event) => event.preventDefault()}
-                                    onClick={() => toggleGeo(option)}
+                                    onClick={() => toggleDropdownGeo(option)}
                                     type="button"
                                 >
                                     {option}
                                 </button>
                             </li>
                         ))}
-                        {isGeoCode(normalizedQuery) && !uniqueOptions.includes(normalizedQuery) && (
+                        {isGeoCode(normalizedQuery)
+                            && !QUICK_GEOS.includes(normalizedQuery)
+                            && !uniqueOptions.includes(normalizedQuery) && (
                             <li role="option">
                                 <button
                                     className="custom"
