@@ -18,9 +18,21 @@ const isTextControl = (element: Element | null): element is HTMLInputElement | H
     return false;
 };
 
+const isComboboxTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    return Boolean(target.closest('.field-combobox-control, .field-combobox-list'));
+};
+
 const isFieldTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof Element)) {
         return false;
+    }
+
+    if (isComboboxTarget(target)) {
+        return true;
     }
 
     if (isTextControl(target.closest('input, textarea, select'))) {
@@ -87,7 +99,11 @@ export function useMobileKeyboard(): boolean {
 
         const blurOnEnter = (event: KeyboardEvent) => {
             const target = event.target;
-            if (event.key !== 'Enter' || !isTextField(target)) {
+            if (event.defaultPrevented || event.key !== 'Enter' || !isTextField(target)) {
+                return;
+            }
+
+            if (target.closest('.field-combobox-control')) {
                 return;
             }
 

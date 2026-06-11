@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useFieldCombobox } from '../hooks/useFieldCombobox';
 
 const QUICK_GEOS = ['DE', 'IL', 'PL', 'GB', 'US'];
 
@@ -21,8 +22,15 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
     onChange,
     placeholder = 'DE, FR, PL...',
 }) => {
-    const rootRef = useRef<HTMLElement>(null);
-    const [open, setOpen] = useState(false);
+    const {
+        rootRef,
+        controlRef,
+        listRef,
+        open,
+        setOpen,
+        dropdownPosition,
+        preventBlur,
+    } = useFieldCombobox<HTMLElement>();
     const [query, setQuery] = useState('');
 
     const customSelected = useMemo(
@@ -84,24 +92,11 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                 : [...selected, normalized],
         );
         setQuery('');
-    };
-
-    const handleBlur = () => {
-        window.setTimeout(() => {
-            if (rootRef.current?.contains(document.activeElement)) {
-                return;
-            }
-
-            if (query.trim()) {
-                addGeo(query);
-            }
-
-            setQuery('');
-            setOpen(false);
-        }, 120);
+        setOpen(true);
     };
 
     const normalizedQuery = normalizeGeo(query);
+    const canAddCustom = isGeoCode(normalizedQuery) && !selected.includes(normalizedQuery);
 
     return (
         <section className="upload-option-group geo-combobox" ref={rootRef}>
@@ -132,12 +127,11 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                     ))}
                 </div>
             )}
-            <div className={`field-combobox-control${open ? ' open' : ''}`}>
+            <div className={`field-combobox-control${open ? ' open' : ''}`} ref={controlRef}>
                 <input
                     autoComplete="off"
                     autoCorrect="off"
                     enterKeyHint="done"
-                    onBlur={handleBlur}
                     onChange={(event) => {
                         setQuery(event.target.value.toUpperCase());
                         setOpen(true);
@@ -146,10 +140,9 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                     onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                             event.preventDefault();
-                            if (isGeoCode(normalizedQuery)) {
+                            if (canAddCustom) {
                                 addGeo(normalizedQuery);
                             }
-                            (event.target as HTMLInputElement).blur();
                         }
 
                         if (event.key === 'Escape') {
@@ -167,13 +160,36 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                     type="text"
                     value={query}
                 />
-                {open && (
-                    <ul className="field-combobox-list" role="listbox">
+                {open && dropdownPosition && (
+                    <ul
+                        className="field-combobox-list field-combobox-list--floating"
+                        ref={listRef}
+                        role="listbox"
+                        style={{
+                            top: dropdownPosition.top,
+                            bottom: dropdownPosition.bottom,
+                            left: dropdownPosition.left,
+                            width: dropdownPosition.width,
+                            maxHeight: dropdownPosition.maxHeight,
+                        }}
+                    >
+                        {canAddCustom && (
+                            <li role="option">
+                                <button
+                                    className="custom"
+                                    onPointerDown={preventBlur}
+                                    onClick={() => addGeo(normalizedQuery)}
+                                    type="button"
+                                >
+                                    додати «{normalizedQuery}»
+                                </button>
+                            </li>
+                        )}
                         {filteredOptions.map((option) => (
                             <li key={option} role="option">
                                 <button
                                     className={selected.includes(option) ? 'active' : ''}
-                                    onMouseDown={(event) => event.preventDefault()}
+                                    onPointerDown={preventBlur}
                                     onClick={() => toggleDropdownGeo(option)}
                                     type="button"
                                 >
@@ -181,18 +197,9 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                                 </button>
                             </li>
                         ))}
-                        {isGeoCode(normalizedQuery)
-                            && !QUICK_GEOS.includes(normalizedQuery)
-                            && !uniqueOptions.includes(normalizedQuery) && (
-                            <li role="option">
-                                <button
-                                    className="custom"
-                                    onMouseDown={(event) => event.preventDefault()}
-                                    onClick={() => addGeo(normalizedQuery)}
-                                    type="button"
-                                >
-                                    додати «{normalizedQuery}»
-                                </button>
+                        {filteredOptions.length === 0 && !canAddCustom && (
+                            <li className="field-combobox-empty" role="presentation">
+                                введіть 2-літерний код, напр. FR
                             </li>
                         )}
                     </ul>
