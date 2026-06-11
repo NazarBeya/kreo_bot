@@ -22,7 +22,6 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         listRef,
         open,
         setOpen,
-        dropdownPosition,
         preventBlur,
     } = useFieldCombobox<HTMLLabelElement>();
     const [query, setQuery] = useState(value);
@@ -95,18 +94,11 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                     type="text"
                     value={query}
                 />
-                {open && dropdownPosition && (
+                {open && (
                     <ul
-                        className="field-combobox-list field-combobox-list--floating"
+                        className="field-combobox-list"
                         ref={listRef}
                         role="listbox"
-                        style={{
-                            top: dropdownPosition.top,
-                            bottom: dropdownPosition.bottom,
-                            left: dropdownPosition.left,
-                            width: dropdownPosition.width,
-                            maxHeight: dropdownPosition.maxHeight,
-                        }}
                     >
                         <li role="option">
                             <button

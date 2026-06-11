@@ -28,7 +28,6 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
         listRef,
         open,
         setOpen,
-        dropdownPosition,
         preventBlur,
     } = useFieldCombobox<HTMLElement>();
     const [query, setQuery] = useState('');
@@ -160,18 +159,11 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                     type="text"
                     value={query}
                 />
-                {open && dropdownPosition && (
+                {open && (
                     <ul
-                        className="field-combobox-list field-combobox-list--floating"
+                        className="field-combobox-list"
                         ref={listRef}
                         role="listbox"
-                        style={{
-                            top: dropdownPosition.top,
-                            bottom: dropdownPosition.bottom,
-                            left: dropdownPosition.left,
-                            width: dropdownPosition.width,
-                            maxHeight: dropdownPosition.maxHeight,
-                        }}
                     >
                         {canAddCustom && (
                             <li role="option">
