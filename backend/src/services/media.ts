@@ -48,7 +48,7 @@ const createWatermarkSvg = (width: number, height: number, text: string) => {
                 stroke="#000000"
                 stroke-opacity="0.28"
                 stroke-width="1"
-                font-family="Arial, Helvetica, sans-serif"
+                font-family="DejaVu Sans, Liberation Sans, sans-serif"
                 font-size="${fontSize}"
                 font-weight="700"
                 letter-spacing="1">${escapeSvgText(text)}</text>

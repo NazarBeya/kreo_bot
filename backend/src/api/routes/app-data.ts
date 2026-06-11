@@ -20,7 +20,11 @@ const notificationTypes = [
   'mention',
 ];
 
-const defaultGeos = ['DE', 'IL', 'PL', 'GB', 'US'];
+const defaultGeos = [
+  'DE', 'GB', 'FR', 'ES', 'IT', 'PL', 'NL', 'BE', 'AT', 'CH',
+  'CZ', 'HU', 'RO', 'SE', 'DK', 'NO', 'FI', 'PT', 'GR', 'IE',
+  'SK', 'BG', 'HR', 'LT', 'LV', 'EE', 'SI', 'LU', 'CY', 'MT', 'UA', 'IL', 'US',
+];
 
 const parseStringArray = (value: unknown, maxLength = 64): string[] => {
   if (!value) {

@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import type { Response } from 'express';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 
@@ -33,7 +35,8 @@ const signRequest = (
   method: string,
   url: URL,
   body: Buffer,
-  contentType?: string
+  contentType?: string,
+  extraHeaders?: Record<string, string>
 ): Headers => {
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -44,6 +47,7 @@ const signRequest = (
     host: url.host,
     'x-amz-content-sha256': payloadHash,
     'x-amz-date': amzDate,
+    ...extraHeaders,
   };
 
   if (contentType) {
@@ -88,11 +92,12 @@ const requestObjectStorage = async (
   method: string,
   path: string,
   body = Buffer.alloc(0),
-  contentType?: string
+  contentType?: string,
+  extraHeaders?: Record<string, string>
 ) => {
   const endpoint = new URL(config.s3.endpoint);
   const url = new URL(`${endpoint.pathname.replace(/\/$/, '')}${path}`, endpoint.toString());
-  const headers = signRequest(method, url, body, contentType);
+  const headers = signRequest(method, url, body, contentType, extraHeaders);
 
   logger.debug(`[S3] ${method} ${url.toString()}`);
 
@@ -207,6 +212,82 @@ export const putObject = async ({ key, body, contentType }: PutObjectInput): Pro
 
   const publicBase = config.s3.publicUrl.replace(/\/$/, '');
   return `${publicBase}/${config.s3.bucket}/${encodePath(key)}`;
+};
+
+export const streamCreativeFile = async (
+  fileUrlOrKey: string,
+  res: Response,
+  rangeHeader?: string
+): Promise<void> => {
+  const key = extractObjectKey(fileUrlOrKey);
+
+  if (config.storage.driver === 'local') {
+    const filePath = path.join(config.storage.localDir, key);
+    const fileStat = await stat(filePath);
+    const fileSize = fileStat.size;
+
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = Number.parseInt(parts[0], 10);
+      const end = parts[1] ? Number.parseInt(parts[1], 10) : fileSize - 1;
+
+      if (Number.isNaN(start) || start >= fileSize || end >= fileSize || start > end) {
+        res.status(416).setHeader('Content-Range', `bytes */${fileSize}`).end();
+        return;
+      }
+
+      const chunkSize = end - start + 1;
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader('Content-Length', chunkSize.toString());
+      createReadStream(filePath, { start, end }).pipe(res);
+      return;
+    }
+
+    res.setHeader('Content-Length', fileSize.toString());
+    createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  const objectPath = `/${config.s3.bucket}/${encodePath(key)}`;
+  const extraHeaders = rangeHeader ? { range: rangeHeader } : undefined;
+  const response = await requestObjectStorage('GET', objectPath, Buffer.alloc(0), undefined, extraHeaders);
+  const contentRange = response.headers.get('content-range');
+  const contentLength = response.headers.get('content-length');
+
+  if (response.status === 206) {
+    res.status(206);
+    if (contentRange) {
+      res.setHeader('Content-Range', contentRange);
+    }
+  }
+
+  res.setHeader('Accept-Ranges', 'bytes');
+  if (contentLength) {
+    res.setHeader('Content-Length', contentLength);
+  }
+
+  const body = response.body;
+  if (!body) {
+    res.status(500).end();
+    return;
+  }
+
+  const reader = body.getReader();
+  const pump = async () => {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        res.end();
+        return;
+      }
+      res.write(Buffer.from(value));
+    }
+  };
+
+  await pump();
 };
 
 export const getSignedUrl = (fileUrlOrKey: string, expiresInSeconds: number = 3600): string => {

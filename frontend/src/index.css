@@ -14,6 +14,13 @@
 * { box-sizing: border-box; }
 
 body { margin: 0; min-width: 320px; min-height: 100vh; }
+body.keyboard-open .bottom-nav {
+  transform: translateY(100%);
+  pointer-events: none;
+  visibility: hidden;
+}
+body.keyboard-open .app-shell { padding-bottom: 20px; }
+html { scroll-padding-bottom: 24px; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 
@@ -270,7 +277,7 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
 
 .play-button {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   top: 50%;
   left: 50%;
   width: 72px;
@@ -280,6 +287,11 @@ h1 span, .creative-info strong, .bottom-nav .active { color: #ffd000; }
   color: white;
   background: rgba(11, 13, 31, .48);
   transform: translate(-50%, -50%);
+}
+.creative-preview-media[type="video"],
+video.creative-preview-media {
+  z-index: 1;
+  background: #000;
 }
 
 .geo-list { position: absolute; z-index: 2; left: 16px; bottom: 16px; display: flex; gap: 8px; }
@@ -1151,6 +1163,80 @@ body.modal-open {
 .preland-field select option {
   background: #1a1a1a;
   color: #f2f1ee;
+}
+
+.field-combobox-control { position: relative; }
+.field-combobox-control input {
+  width: 100%;
+  min-height: 74px;
+  height: 74px;
+  padding: 0 24px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 9px;
+  color: #f2f1ee;
+  background: rgba(255,255,255,.018);
+  font: inherit;
+  font-size: 20px;
+  outline: none;
+  box-sizing: border-box;
+}
+.field-combobox-control.open input {
+  border-color: #ffd000;
+  background: rgba(255,255,255,.04);
+}
+.field-combobox-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  max-height: 280px;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 9px;
+  background: #141616;
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+}
+.field-combobox-list button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 7px;
+  color: #f2f1ee;
+  background: transparent;
+  font: inherit;
+  font-size: 18px;
+  text-align: left;
+}
+.field-combobox-list button.active {
+  color: #111;
+  background: #ffd000;
+}
+.field-combobox-list button.custom {
+  color: #ffd000;
+}
+.field-combobox .field-combobox-list button {
+  text-transform: lowercase;
+}
+.geo-combobox-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.geo-combobox-chips button {
+  min-height: 47px;
+  padding: 8px 20px;
+  border: 1px solid #ffd000;
+  border-radius: 7px;
+  color: #111;
+  background: #ffd000;
+  font-size: 19px;
 }
 
 .upload-file-section { margin-top: 34px; }

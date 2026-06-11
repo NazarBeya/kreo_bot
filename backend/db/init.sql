@@ -200,8 +200,28 @@ INSERT INTO reference_lists (list_type, value, is_active, sort_order) VALUES
 INSERT INTO reference_lists (list_type, value, is_active, sort_order) VALUES
   ('language', 'en', true, 1),
   ('language', 'de', true, 2),
-  ('language', 'uk', true, 3),
-  ('language', 'ru', true, 4);
+  ('language', 'fr', true, 3),
+  ('language', 'es', true, 4),
+  ('language', 'it', true, 5),
+  ('language', 'pt', true, 6),
+  ('language', 'pl', true, 7),
+  ('language', 'nl', true, 8),
+  ('language', 'uk', true, 9),
+  ('language', 'ru', true, 10),
+  ('language', 'ro', true, 11),
+  ('language', 'cs', true, 12),
+  ('language', 'hu', true, 13),
+  ('language', 'sv', true, 14),
+  ('language', 'da', true, 15),
+  ('language', 'no', true, 16),
+  ('language', 'fi', true, 17),
+  ('language', 'el', true, 18),
+  ('language', 'bg', true, 19),
+  ('language', 'sk', true, 20),
+  ('language', 'hr', true, 21),
+  ('language', 'lt', true, 22),
+  ('language', 'lv', true, 23),
+  ('language', 'et', true, 24);
 
 INSERT INTO admin_settings (key, value) VALUES
   ('negative_status_threshold', '3'::jsonb),

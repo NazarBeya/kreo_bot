@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { requireAuth } from '../../middleware/auth.js';
 import { getCreativeByShortId, getCreativeVersionHistory, searchCreatives, getCreativeById, type CreativeSortMode } from '../../services/creative.js';
 import { applyWatermarkToPreview, uploadCreativeMedia } from '../../services/media.js';
-import { getObject } from '../../services/storage.js';
+import { getObject, streamCreativeFile } from '../../services/storage.js';
 import { getViewerWatermarkLabel } from '../../services/user.js';
 import { notifyCreativeDownloaded, notifySubscribersAboutCreative } from '../../services/notifications.js';
 import { logger } from '../../logger.js';
@@ -450,6 +450,52 @@ const resolvePreviewUser = async (req: Request) => {
   }
 };
 
+export const creativeStreamHandler = async (req: Request, res: Response) => {
+  try {
+    const viewer = await resolvePreviewUser(req);
+    if (!viewer || !viewer.is_active) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { id } = req.params;
+    let creative = await getCreativeByShortId(id);
+    if (!creative) {
+      creative = await getCreativeById(id);
+    }
+    if (!creative) {
+      return res.status(404).json({ error: 'Creative not found' });
+    }
+
+    const fileType = (creative as any).file_type || creative.fileType;
+    if (fileType !== 'video') {
+      return res.status(400).json({ error: 'Creative is not a video' });
+    }
+
+    const fileResult = await query(
+      'SELECT file_url, mime_type FROM creatives WHERE id = $1',
+      [creative.id]
+    );
+    const fileUrl = fileResult.rows[0]?.file_url;
+    const mimeType = fileResult.rows[0]?.mime_type || 'video/mp4';
+
+    if (!fileUrl) {
+      return res.status(404).json({ error: 'Video file not found' });
+    }
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cache-Control', 'private, no-store');
+
+    const rangeHeader = typeof req.headers.range === 'string' ? req.headers.range : undefined;
+    await streamCreativeFile(fileUrl, res, rangeHeader);
+  } catch (error) {
+    logger.error(error, 'Error streaming creative video');
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to stream video' });
+    }
+  }
+};
+
 export const creativePreviewHandler = async (req: Request, res: Response) => {
   try {
     const viewer = await resolvePreviewUser(req);
@@ -473,6 +519,7 @@ export const creativePreviewHandler = async (req: Request, res: Response) => {
 
     res.setHeader('Content-Type', 'image/webp');
     res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('Vary', 'Authorization');
     res.send(watermarked);
   } catch (error) {
     logger.error(error, 'Error generating watermarked preview');
@@ -589,7 +636,7 @@ creativeRouter.get('/:id/download', requireAuth, async (req: Request, res: Respo
     const downloadToken = jwt.sign(
       { creativeId: creative.id, userId: req.user.id },
       config.jwtSecret,
-      { expiresIn: '60s' }
+      { expiresIn: '5m' }
     );
 
     res.json({
@@ -602,7 +649,7 @@ creativeRouter.get('/:id/download', requireAuth, async (req: Request, res: Respo
   }
 });
 
-creativeRouter.get('/:id/download/file', async (req: Request, res: Response) => {
+export const creativeDownloadFileHandler = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { token } = req.query;
@@ -611,10 +658,10 @@ creativeRouter.get('/:id/download/file', async (req: Request, res: Response) => 
       return res.status(401).json({ error: 'Unauthorized: missing token' });
     }
 
-    let decoded: any;
+    let decoded: { creativeId: string; userId: string };
     try {
-      decoded = jwt.verify(token, config.jwtSecret);
-    } catch (err) {
+      decoded = jwt.verify(token, config.jwtSecret) as { creativeId: string; userId: string };
+    } catch {
       return res.status(401).json({ error: 'Unauthorized: invalid or expired token' });
     }
 
@@ -651,14 +698,14 @@ creativeRouter.get('/:id/download/file', async (req: Request, res: Response) => 
       const key = extractObjectKey(fileUrl);
       const filePath = path.join(config.storage.localDir, key);
       return res.download(filePath, filename);
-    } else {
-      const buffer = await getObject(fileUrl);
-      return res.send(buffer);
     }
+
+    const buffer = await getObject(fileUrl);
+    return res.send(buffer);
   } catch (error) {
     logger.error(error, 'Error proxying download file');
     res.status(500).json({ error: 'Failed to stream download file' });
   }
-});
+};
 
 export default creativeRouter;

@@ -85,6 +85,7 @@ export const updateUserLastActive = async (userId: string): Promise<void> => {
   }
 };
 
+/** Leak-tracing label: the person viewing the creative, not the uploader. */
 export const getViewerWatermarkLabel = (user: Pick<User, 'username' | 'display_name'>): string => {
   if (user.username) {
     return `@${user.username}`;

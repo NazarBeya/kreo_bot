@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import apiClient from './api';
 import { AdminUsersPanel } from './components/AdminUsersPanel';
-import { getWatermarkedPreviewUrl } from './utils/preview';
+import { GeoCombobox } from './components/GeoCombobox';
+import { LanguageCombobox } from './components/LanguageCombobox';
+import { useMobileKeyboard } from './hooks/useMobileKeyboard';
+import { buildCreativeFilename, downloadFileToDevice } from './utils/download';
+import { getCreativeStreamUrl, getWatermarkedPreviewUrl } from './utils/preview';
 
 type CreativeStatus = 'new' | 'working' | 'fading' | 'dead';
 
@@ -191,6 +195,7 @@ interface TelegramWebApp {
     expand: () => void;
     ready: () => void;
     onEvent?: (eventType: string, callback: () => void) => void;
+    downloadFile?: (params: { url: string; file_name: string }) => void;
 }
 
 declare global {
@@ -201,14 +206,47 @@ declare global {
 
 const tones = ['ember', 'violet', 'berry', 'ocean'];
 
-const CreativePreviewMedia: React.FC<{ creativeId: string }> = ({ creativeId }) => (
-    <img
-        className="creative-preview-media"
-        src={getWatermarkedPreviewUrl(creativeId)}
-        alt=""
-        loading="lazy"
-    />
-);
+const CreativePreviewMedia: React.FC<{
+    creativeId: string;
+    fileType?: 'video' | 'image';
+    playing?: boolean;
+    onPlay?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}> = ({ creativeId, fileType = 'image', playing = false, onPlay }) => {
+    if (fileType === 'video' && playing) {
+        return (
+            <video
+                className="creative-preview-media"
+                src={getCreativeStreamUrl(creativeId)}
+                controls
+                playsInline
+                autoPlay
+                preload="metadata"
+                onClick={(event) => event.stopPropagation()}
+            />
+        );
+    }
+
+    return (
+        <>
+            <img
+                className="creative-preview-media"
+                src={getWatermarkedPreviewUrl(creativeId)}
+                alt=""
+                loading="lazy"
+            />
+            {fileType === 'video' && onPlay && (
+                <button
+                    className="play-button"
+                    type="button"
+                    aria-label="Відтворити відео"
+                    onClick={onPlay}
+                >
+                    ▶
+                </button>
+            )}
+        </>
+    );
+};
 
 const ViewerWatermarks: React.FC<{ viewerLabel: string; count?: number }> = ({ viewerLabel, count = 6 }) => (
     <div className="watermarks" aria-hidden="true">
@@ -309,8 +347,44 @@ const navItems = [
     ['◐', 'профіль'],
 ];
 
-const defaultGeos = ['DE', 'IL', 'PL', 'GB', 'US'];
+const defaultGeos = [
+    'DE', 'GB', 'FR', 'ES', 'IT', 'PL', 'NL', 'BE', 'AT', 'CH',
+    'CZ', 'HU', 'RO', 'SE', 'DK', 'NO', 'FI', 'PT', 'GR', 'IE',
+    'SK', 'BG', 'HR', 'LT', 'LV', 'EE', 'SI', 'LU', 'CY', 'MT', 'UA', 'IL', 'US',
+];
+
+const mergeGeoOptions = (fromApi: string[]) => {
+    const merged = new Set([...defaultGeos, ...fromApi.map((item) => item.toUpperCase())]);
+    const ordered = defaultGeos.filter((item) => merged.has(item));
+
+    fromApi.forEach((item) => {
+        const normalized = item.toUpperCase();
+        if (!ordered.includes(normalized)) {
+            ordered.push(normalized);
+        }
+    });
+
+    return ordered;
+};
 const defaultAngles = ['sugar', 'mature', 'casual', 'MILF', 'asian', 'серйозні стосунки', 'swinger'];
+const defaultLanguages = [
+    'en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'nl', 'uk', 'ru',
+    'ro', 'cs', 'hu', 'sv', 'da', 'no', 'fi', 'el', 'bg', 'sk', 'hr', 'lt', 'lv', 'et',
+];
+
+const mergeLanguageOptions = (fromApi: string[]) => {
+    const merged = new Set([...defaultLanguages, ...fromApi.map((item) => item.toLowerCase())]);
+    const ordered = defaultLanguages.filter((item) => merged.has(item));
+
+    fromApi.forEach((item) => {
+        const normalized = item.toLowerCase();
+        if (!ordered.includes(normalized)) {
+            ordered.push(normalized);
+        }
+    });
+
+    return ordered;
+};
 const statusFilters: CreativeStatus[] = ['working', 'fading', 'dead', 'new'];
 type SortMode = 'newest' | 'confirmations' | 'updated';
 type AppScreen = 'catalog' | 'feed' | 'upload' | 'bookmarks' | 'profile';
@@ -490,23 +564,30 @@ const BottomNav: React.FC<{ activeScreen: AppScreen; onNavigate: (screen: AppScr
 
 const CreativePreview: React.FC<{
     creative: CreativeCard;
-    viewerLabel: string;
-    onOpen: (creative: CreativeCard) => void;
+    onOpen: (creative: CreativeCard, options?: { autoPlay?: boolean }) => void;
 }> = ({
     creative,
-    viewerLabel,
     onOpen,
-}) => (
-        <article className="creative-card catalog-card" onClick={() => onOpen(creative)}>
+}) => {
+    const [playing, setPlaying] = useState(false);
+
+    return (
+        <article className="creative-card catalog-card" onClick={() => !playing && onOpen(creative)}>
             <div className={`creative-preview tone-${creative.tone}`}>
-                <CreativePreviewMedia creativeId={creative.id} />
+                <CreativePreviewMedia
+                    creativeId={creative.id}
+                    fileType={creative.fileType}
+                    playing={playing}
+                    onPlay={(event) => {
+                        event.stopPropagation();
+                        setPlaying(true);
+                    }}
+                />
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
                 </span>
                 {creative.isArchived && <span className="archive-badge">архів</span>}
-                <ViewerWatermarks viewerLabel={viewerLabel} />
-                {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
                 <div className="geo-list">
                     {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
                 </div>
@@ -523,25 +604,33 @@ const CreativePreview: React.FC<{
             </div>
         </article>
     );
+};
 
 const BookmarkPreview: React.FC<{
     creative: CreativeCard;
-    viewerLabel: string;
-    onOpen: (creative: CreativeCard) => void;
+    onOpen: (creative: CreativeCard, options?: { autoPlay?: boolean }) => void;
 }> = ({
     creative,
-    viewerLabel,
     onOpen,
-}) => (
-        <article className="creative-card bookmark-card" onClick={() => onOpen(creative)}>
+}) => {
+    const [playing, setPlaying] = useState(false);
+
+    return (
+        <article className="creative-card bookmark-card" onClick={() => !playing && onOpen(creative)}>
             <div className={`creative-preview tone-${creative.tone}`}>
-                <CreativePreviewMedia creativeId={creative.id} />
+                <CreativePreviewMedia
+                    creativeId={creative.id}
+                    fileType={creative.fileType}
+                    playing={playing}
+                    onPlay={(event) => {
+                        event.stopPropagation();
+                        setPlaying(true);
+                    }}
+                />
                 <span className={`status-pill status-${creative.status}`}>
                     <i />
                     {statusLabels[creative.status]}
                 </span>
-                <ViewerWatermarks viewerLabel={viewerLabel} />
-                {creative.fileType === 'video' && <button className="play-button" aria-label="Відтворити прев'ю">▶</button>}
                 <div className="geo-list">
                     {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
                 </div>
@@ -559,6 +648,7 @@ const BookmarkPreview: React.FC<{
             </div>
         </article>
     );
+};
 
 const CreativeDetailsModal: React.FC<{
     creative: CreativeCard;
@@ -569,9 +659,6 @@ const CreativeDetailsModal: React.FC<{
     onResurrect: (creative: CreativeCard) => Promise<void>;
     onLifecycleUpdate: (creative: CreativeCard, status: 'actual' | 'fading' | 'not_running') => Promise<void>;
 }> = ({ creative, currentUser, onClose, onBookmarkToggle, onCommentAdded, onResurrect, onLifecycleUpdate }) => {
-    const viewerLabel = currentUser?.username
-        ? `@${currentUser.username}`
-        : currentUser?.displayName || 'невідомо';
     const [activeTab, setActiveTab] = useState<'info' | 'versions' | 'testers' | 'comments'>('info');
     const [testers, setTesters] = useState<TesterStatus[]>([]);
     const [comments, setComments] = useState<CreativeComment[]>([]);
@@ -582,6 +669,7 @@ const CreativeDetailsModal: React.FC<{
     const [hasDownloaded, setHasDownloaded] = useState(false);
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [touchTranslation, setTouchTranslation] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         const modalElement = e.currentTarget as HTMLElement;
@@ -620,6 +708,10 @@ const CreativeDetailsModal: React.FC<{
         currentUser
         && (currentUser.role === 'admin' || currentUser.role === 'lead' || currentUser.id === creative.authorId)
     );
+
+    useEffect(() => {
+        setIsPlaying(false);
+    }, [creative.id]);
 
     useEffect(() => {
         const loadDetails = async () => {
@@ -685,16 +777,20 @@ const CreativeDetailsModal: React.FC<{
             >
                 <div className="details-handle" />
                 <div className={`details-preview tone-${creative.tone}`}>
-                    <CreativePreviewMedia creativeId={creative.id} />
+                    <CreativePreviewMedia
+                        creativeId={creative.id}
+                        fileType={creative.fileType}
+                        playing={isPlaying}
+                        onPlay={(event) => {
+                            event.stopPropagation();
+                            setIsPlaying(true);
+                        }}
+                    />
                     <span className={`status-pill status-${creative.status}`}>
                         <i />
                         {statusLabels[creative.status]}
                     </span>
                     {creative.isArchived && <span className="archive-badge">архів</span>}
-                    <ViewerWatermarks viewerLabel={viewerLabel} />
-                    {creative.fileType === 'video' && (
-                        <button className="play-button" aria-label="Відтворити прев'ю">▶</button>
-                    )}
                     <div className="geo-list">
                         {creative.geos.map((geo) => <span key={geo}>{geo}</span>)}
                     </div>
@@ -737,7 +833,10 @@ const CreativeDetailsModal: React.FC<{
                             className={`download ${hasDownloaded ? 'downloaded' : ''}`}
                             onClick={async () => {
                                 const response = await apiClient.get(`/api/creatives/${creative.id}/download`);
-                                window.open(response.data.url, '_blank');
+                                await downloadFileToDevice(
+                                    response.data.url,
+                                    buildCreativeFilename(creative.shortId, creative.mimeType, creative.fileType),
+                                );
                                 setHasDownloaded(true);
                             }}
                         >
@@ -1201,12 +1300,11 @@ const UploadScreen: React.FC<{
                 )}
                 <section className="batch-settings">
                     <h2>спільне для всього батчу</h2>
-                    <UploadOptionGroup
+                    <GeoCombobox
                         label="гео ·"
                         options={geoOptions}
                         selected={selectedGeos}
-                        onToggle={(value) => toggleValue(value, selectedGeos, setSelectedGeos)}
-                        onCustomSelect={setSelectedGeos}
+                        onChange={setSelectedGeos}
                     />
                     <UploadOptionGroup
                         label="angle ·"
@@ -1214,17 +1312,12 @@ const UploadScreen: React.FC<{
                         selected={selectedAngles}
                         onToggle={(value) => toggleValue(value, selectedAngles, setSelectedAngles)}
                     />
-                    {languageOptions.length > 0 && (
-                        <label className="preland-field">
-                            <span>мова крео (опц.)</span>
-                            <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-                                <option value="">не вказано</option>
-                                {languageOptions.map((option) => (
-                                    <option key={option} value={option}>{option}</option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
+                    <LanguageCombobox
+                        label="мова крео (опц.)"
+                        options={languageOptions}
+                        value={language}
+                        onChange={setLanguage}
+                    />
                     <label className="preland-field">
                         <span>преленд (опц.)</span>
                         <input
@@ -1384,12 +1477,11 @@ const UploadPreview: React.FC<{
             </div>
             {file.override && (
                 <section className="file-override-panel">
-                    <UploadOptionGroup
+                    <GeoCombobox
                         label="гео ·"
                         options={geoOptions}
                         selected={file.geos}
-                        onToggle={(value) => onToggleValue(value, 'geos')}
-                        onCustomSelect={(newGeos) => onUpdate(file.id, { geos: newGeos })}
+                        onChange={(newGeos) => onUpdate(file.id, { geos: newGeos })}
                     />
                     <UploadOptionGroup
                         label="angle ·"
@@ -1826,8 +1918,10 @@ export const App: React.FC = () => {
     const [referenceLists, setReferenceLists] = useState({
         geos: defaultGeos,
         angles: defaultAngles,
-        languages: [] as string[],
+        languages: defaultLanguages,
     });
+
+    useMobileKeyboard();
 
     const buildCatalogParams = (
         nextArchiveMode = archiveMode,
@@ -2318,7 +2412,6 @@ export const App: React.FC = () => {
                             <BookmarkPreview
                                 creative={creative}
                                 key={creative.id}
-                                viewerLabel={viewerLabel}
                                 onOpen={setSelectedCreative}
                             />
                         ))}
@@ -2348,9 +2441,9 @@ export const App: React.FC = () => {
                     key={uploadScreenKey}
                     presets={profile?.presets || []}
                     uploaderLabel={viewerLabel}
-                    geoOptions={referenceLists.geos}
+                    geoOptions={mergeGeoOptions(referenceLists.geos)}
                     angleOptions={referenceLists.angles}
-                    languageOptions={referenceLists.languages}
+                    languageOptions={mergeLanguageOptions(referenceLists.languages)}
                     onUploaded={loadAppData}
                 />
                 <BottomNav activeScreen={activeScreen} onNavigate={setActiveScreen} />
@@ -2511,7 +2604,6 @@ export const App: React.FC = () => {
                         <CreativePreview
                             creative={creative}
                             key={creative.id}
-                            viewerLabel={viewerLabel}
                             onOpen={setSelectedCreative}
                         />
                     ))}

@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import creativeRouter, { creativePreviewHandler } from './routes/creatives.js';
+import creativeRouter, {
+  creativeDownloadFileHandler,
+  creativePreviewHandler,
+  creativeStreamHandler,
+} from './routes/creatives.js';
 import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import statusRouter from './routes/status.js';
@@ -11,6 +15,8 @@ const router = Router();
 
 router.use('/auth', authRouter);
 router.get('/creatives/:id/preview', creativePreviewHandler);
+router.get('/creatives/:id/stream', creativeStreamHandler);
+router.get('/creatives/:id/download/file', creativeDownloadFileHandler);
 router.use('/admin', telegramAuth, adminRouter);
 router.use('/creatives', telegramAuth, creativeRouter);
 router.use('/status', telegramAuth, statusRouter);
