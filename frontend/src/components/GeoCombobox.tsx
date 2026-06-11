@@ -159,44 +159,44 @@ export const GeoCombobox: React.FC<GeoComboboxProps> = ({
                     type="text"
                     value={query}
                 />
-                {open && (
-                    <ul
-                        className="field-combobox-list"
-                        ref={listRef}
-                        role="listbox"
-                    >
-                        {canAddCustom && (
-                            <li role="option">
-                                <button
-                                    className="custom"
-                                    onPointerDown={preventBlur}
-                                    onClick={() => addGeo(normalizedQuery)}
-                                    type="button"
-                                >
-                                    додати «{normalizedQuery}»
-                                </button>
-                            </li>
-                        )}
-                        {filteredOptions.map((option) => (
-                            <li key={option} role="option">
-                                <button
-                                    className={selected.includes(option) ? 'active' : ''}
-                                    onPointerDown={preventBlur}
-                                    onClick={() => toggleDropdownGeo(option)}
-                                    type="button"
-                                >
-                                    {option}
-                                </button>
-                            </li>
-                        ))}
-                        {filteredOptions.length === 0 && !canAddCustom && (
-                            <li className="field-combobox-empty" role="presentation">
-                                введіть 2-літерний код, напр. FR
-                            </li>
-                        )}
-                    </ul>
-                )}
             </div>
+            {open && (
+                <ul
+                    className="field-combobox-section"
+                    ref={listRef}
+                    role="listbox"
+                >
+                    {canAddCustom && (
+                        <li role="option">
+                            <button
+                                className="custom"
+                                onPointerDown={preventBlur}
+                                onClick={() => addGeo(normalizedQuery)}
+                                type="button"
+                            >
+                                додати «{normalizedQuery}»
+                            </button>
+                        </li>
+                    )}
+                    {filteredOptions.map((option) => (
+                        <li key={option} role="option">
+                            <button
+                                className={selected.includes(option) ? 'active' : ''}
+                                onPointerDown={preventBlur}
+                                onClick={() => toggleDropdownGeo(option)}
+                                type="button"
+                            >
+                                {option}
+                            </button>
+                        </li>
+                    ))}
+                    {filteredOptions.length === 0 && !canAddCustom && (
+                        <li className="field-combobox-empty" role="presentation">
+                            введіть 2-літерний код, напр. FR
+                        </li>
+                    )}
+                </ul>
+            )}
         </section>
     );
 };

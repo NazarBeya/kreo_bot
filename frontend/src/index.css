@@ -1773,3 +1773,64 @@ video::-moz-media-controls-volume-slider,
 video::-moz-media-controls-mute-button {
   display: none !important;
 }
+
+/* Inline Combobox Options Section */
+.field-combobox-section {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  margin: 12px 0 0 0;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  list-style: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
+}
+
+.field-combobox-section button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(242, 241, 238, 0.85);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  box-sizing: border-box;
+  margin-bottom: 2px;
+}
+
+.field-combobox-section button:last-child {
+  margin-bottom: 0;
+}
+
+.field-combobox-section button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.field-combobox-section button.active {
+  background: rgba(255, 208, 0, 0.1);
+  color: #ffd000;
+  font-weight: 500;
+}
+
+.field-combobox-section button.custom {
+  color: #ffd000;
+  border: 1px dashed rgba(255, 208, 0, 0.3);
+  background: rgba(255, 208, 0, 0.02);
+}
+
+.field-combobox-section button.custom:hover {
+  background: rgba(255, 208, 0, 0.08);
+}

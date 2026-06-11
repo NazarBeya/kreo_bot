@@ -94,49 +94,49 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                     type="text"
                     value={query}
                 />
-                {open && (
-                    <ul
-                        className="field-combobox-list"
-                        ref={listRef}
-                        role="listbox"
-                    >
+            </div>
+            {open && (
+                <ul
+                    className="field-combobox-section"
+                    ref={listRef}
+                    role="listbox"
+                >
+                    <li role="option">
+                        <button
+                            className={!value ? 'active' : ''}
+                            onPointerDown={preventBlur}
+                            onClick={() => commitValue('')}
+                            type="button"
+                        >
+                            не вказано
+                        </button>
+                    </li>
+                    {canAddCustom && (
                         <li role="option">
                             <button
-                                className={!value ? 'active' : ''}
+                                className="custom"
                                 onPointerDown={preventBlur}
-                                onClick={() => commitValue('')}
+                                onClick={() => commitValue(query)}
                                 type="button"
                             >
-                                не вказано
+                                додати «{normalizedQuery}»
                             </button>
                         </li>
-                        {canAddCustom && (
-                            <li role="option">
-                                <button
-                                    className="custom"
-                                    onPointerDown={preventBlur}
-                                    onClick={() => commitValue(query)}
-                                    type="button"
-                                >
-                                    додати «{normalizedQuery}»
-                                </button>
-                            </li>
-                        )}
-                        {filteredOptions.map((option) => (
-                            <li key={option} role="option">
-                                <button
-                                    className={option === value ? 'active' : ''}
-                                    onPointerDown={preventBlur}
-                                    onClick={() => commitValue(option)}
-                                    type="button"
-                                >
-                                    {option}
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
+                    )}
+                    {filteredOptions.map((option) => (
+                        <li key={option} role="option">
+                            <button
+                                className={option === value ? 'active' : ''}
+                                onPointerDown={preventBlur}
+                                onClick={() => commitValue(option)}
+                                type="button"
+                            >
+                                {option}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </label>
     );
 };
