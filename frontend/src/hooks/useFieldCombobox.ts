@@ -61,11 +61,13 @@ export function useFieldCombobox<T extends HTMLElement = HTMLDivElement>() {
         viewport?.addEventListener('resize', updatePosition);
         viewport?.addEventListener('scroll', updatePosition);
         window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, { capture: true, passive: true });
 
         return () => {
             viewport?.removeEventListener('resize', updatePosition);
             viewport?.removeEventListener('scroll', updatePosition);
             window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
         };
     }, [open, updatePosition]);
 

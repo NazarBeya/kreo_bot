@@ -789,9 +789,10 @@ const CreativeDetailsModal: React.FC<{
                         allowVideoPlayback
                         creativeId={creative.id}
                         fileType={creative.fileType}
-                        playing={isPlaying}
+                        playing={isPlaying && !isLightboxOpen}
                         onPlay={(event) => {
                             event.stopPropagation();
+                            setIsPlaying(true);
                             setIsLightboxOpen(true);
                         }}
                     />
@@ -1001,11 +1002,11 @@ const CreativeDetailsModal: React.FC<{
             </article>
 
             {isLightboxOpen && (
-                <div className="media-lightbox" onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); }}>
+                <div className="media-lightbox" onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); setIsPlaying(false); }}>
                     <button 
                         className="lightbox-close" 
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); }}
+                        onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); setIsPlaying(false); }}
                         aria-label="Закрити"
                     >
                         ✕
