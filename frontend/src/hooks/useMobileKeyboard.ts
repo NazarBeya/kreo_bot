@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 const isTextControl = (element: Element | null): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement => {
     if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
@@ -12,15 +12,12 @@ const isTextControl = (element: Element | null): element is HTMLInputElement | H
     return false;
 };
 
-export function useMobileKeyboard(): boolean {
-    const [keyboardOpen, setKeyboardOpen] = useState(false);
-
+export function useMobileKeyboard(): void {
     useEffect(() => {
         const handleFocusIn = (event: FocusEvent) => {
             const target = event.target;
             if (target instanceof Element && isTextControl(target)) {
                 document.body.classList.add('keyboard-open');
-                setKeyboardOpen(true);
 
                 // Scroll the input to the top of the viewport (respecting scroll-margin-top)
                 window.setTimeout(() => {
@@ -36,7 +33,6 @@ export function useMobileKeyboard(): boolean {
                     // Only remove keyboard-open if focus did not move to another input control
                     if (!isTextControl(document.activeElement)) {
                         document.body.classList.remove('keyboard-open');
-                        setKeyboardOpen(false);
                     }
                 }, 100);
             }
@@ -101,6 +97,4 @@ export function useMobileKeyboard(): boolean {
             document.body.classList.remove('keyboard-open');
         };
     }, []);
-
-    return keyboardOpen;
 }
