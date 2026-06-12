@@ -22,10 +22,10 @@ export function useMobileKeyboard(): boolean {
                 document.body.classList.add('keyboard-open');
                 setKeyboardOpen(true);
 
-                // Scroll the input to the center of the viewport after keyboard animations settle
+                // Scroll the input to the top of the viewport (respecting scroll-margin-top)
                 window.setTimeout(() => {
-                    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                }, 200);
+                    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }, 150);
             }
         };
 
