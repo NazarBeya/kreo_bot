@@ -14,12 +14,7 @@
 * { box-sizing: border-box; }
 
 body { margin: 0; min-width: 320px; min-height: 100vh; }
-body.keyboard-open .bottom-nav {
-  transform: translateY(100%);
-  pointer-events: none;
-  visibility: hidden;
-}
-body.keyboard-open .app-shell { padding-bottom: 20px; }
+body.keyboard-open .app-shell { padding-bottom: 180px; }
 html { scroll-padding-bottom: 24px; }
 button, input { font: inherit; }
 button { cursor: pointer; }
@@ -1530,6 +1525,8 @@ body.modal-open {
     padding: 0 16px;
     border-radius: 7px;
     font-size: 16px;
+    scroll-margin-bottom: 130px;
+    scroll-margin-top: 80px;
   }
   .preland-field select {
     background-position: right 16px center;
@@ -1541,6 +1538,8 @@ body.modal-open {
     padding: 0 16px;
     border-radius: 7px;
     font-size: 16px;
+    scroll-margin-bottom: 130px;
+    scroll-margin-top: 80px;
   }
   .geo-quick-options { gap: 8px; margin-bottom: 8px; }
   .geo-combobox-chips { gap: 8px; margin-bottom: 8px; }
