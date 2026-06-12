@@ -1529,7 +1529,7 @@ body.modal-open {
     height: 52px;
     padding: 0 16px;
     border-radius: 7px;
-    font-size: 14px;
+    font-size: 16px;
   }
   .preland-field select {
     background-position: right 16px center;
@@ -1540,7 +1540,7 @@ body.modal-open {
     height: 52px;
     padding: 0 16px;
     border-radius: 7px;
-    font-size: 14px;
+    font-size: 16px;
   }
   .geo-quick-options { gap: 8px; margin-bottom: 8px; }
   .geo-combobox-chips { gap: 8px; margin-bottom: 8px; }
