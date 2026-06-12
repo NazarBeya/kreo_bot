@@ -15,6 +15,9 @@
 
 body { margin: 0; min-width: 320px; min-height: 100vh; }
 body.keyboard-open .app-shell { padding-bottom: 420px !important; }
+body.keyboard-open .bottom-nav {
+  display: none !important;
+}
 html { scroll-padding-bottom: 24px; }
 button, input { font: inherit; }
 button { cursor: pointer; }

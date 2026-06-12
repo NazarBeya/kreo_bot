@@ -11,7 +11,7 @@ export function useFieldCombobox<T extends HTMLElement = HTMLDivElement>() {
             return;
         }
 
-        const handlePointerDown = (event: PointerEvent) => {
+        const handleOutsideClick = (event: MouseEvent) => {
             const target = event.target;
             if (!(target instanceof Node)) {
                 return;
@@ -24,8 +24,8 @@ export function useFieldCombobox<T extends HTMLElement = HTMLDivElement>() {
             setOpen(false);
         };
 
-        document.addEventListener('pointerdown', handlePointerDown, true);
-        return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+        document.addEventListener('click', handleOutsideClick, true);
+        return () => document.removeEventListener('click', handleOutsideClick, true);
     }, [open]);
 
     const preventBlur = (event: ReactPointerEvent) => {
